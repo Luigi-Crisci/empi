@@ -6,5 +6,6 @@
 #include <empi/message_grp_hdl.hpp>
 #include <empi/async_event.hpp>
 #include <empi/tag.hpp>
+#include <empi/layouts.hpp>
 
 #endif // __EMPI_H__

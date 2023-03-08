@@ -3,8 +3,11 @@ project(empi-project VERSION 0.1.0)
 
 include(CTest)
 enable_testing()
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FindMPI REQUIRED)
+
+find_package(mdspan REQUIRED)
 
 option(ENABLE_UNCHECKED_FUNCTION "enable unchecked function (requires custom OMPI)" ON)
 option(BUILD_EXAMPLES "Build Examples" OFF)
@@ -23,7 +26,9 @@ set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/async_event.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/datatype.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/defines.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts.hpp
 	)
+
 
 add_library(empi INTERFACE ${header_files})
 
@@ -38,8 +43,6 @@ set_target_properties(empi
 	PUBLIC_HEADER "${header_files}"
 	)
 	
-
-
 target_include_directories(empi
   INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -67,9 +70,9 @@ message("//===---------------------------------------===//")
 message("-> ENABLE_UNCHECKED_FUNCTION:........ ${ENABLE_UNCHECKED_FUNCTION}")
 message("-> BUILD_EXAMPLES:................... ${BUILD_EXAMPLES}")
 if(BUILD_EXAMPLES)
-message("-> BUILD_MPI_EXAMPLES:............... ${BUILD_MPI_EXAMPLES}")
-message("-> BUILD_UMPI_EXAMPLES:.............. ${BUILD_EXAMPLES}")
-message("-> BUILD_MPL_EXAMPLES:............... ${BUILD_MPL_EXAMPLES}")
+message("---> BUILD_MPI_EXAMPLES:............. ${BUILD_MPI_EXAMPLES}")
+message("---> BUILD_UMPI_EXAMPLES:............ ${BUILD_UMPI_EXAMPLES}")
+message("---> BUILD_MPL_EXAMPLES:............. ${BUILD_MPL_EXAMPLES}")
 endif()
 message("-> ENABLE_TESTS:..................... ${ENABLE_TESTS}")
 message("//===---------------------------------------===//")

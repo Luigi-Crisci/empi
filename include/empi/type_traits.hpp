@@ -1,9 +1,12 @@
 #ifndef __TYPE_TRAITS_H__
 #define __TYPE_TRAITS_H__
 
+#include <mpi.h>
+
 #include <type_traits>
 #include <tuple>
-#include <mpi.h>
+#include <concepts>
+#include <experimental/mdspan>
 
 namespace empi
 {
@@ -19,7 +22,7 @@ struct is_same {
   static constexpr bool value = v1 == v2;
 };
 
-template<size_t size>
+template<std::size_t size>
 concept has_size = requires {
   size > 0;
 };
@@ -48,7 +51,7 @@ struct function_traits<ReturnType(ClassType::*)(Args...) const>
 
   typedef ReturnType result_type;
 
-  template <size_t i>
+  template <std::size_t i>
   struct arg
   {
 	typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
@@ -106,6 +109,32 @@ template<has_value_type T>
 struct get_true_type<T>{
   using type = typename T::value_type;
 };
+
+template<template<typename index_type,size_t ...Args> typename T,typename index_type, size_t FirstEntryFrom, size_t ...TupleTypesResult, size_t ...TupleTypesFrom>
+constexpr auto remove_last_impl(T<index_type,TupleTypesResult...> res, T<index_type, FirstEntryFrom, TupleTypesFrom...> src){
+    if constexpr(sizeof...(TupleTypesFrom) > 0)
+        return remove_last_impl(T<index_type, TupleTypesResult..., FirstEntryFrom>(), T<index_type, TupleTypesFrom...>());
+    else 
+        return res;
+}
+
+template<template<typename index_type,size_t ...Args> typename T, typename index_type, size_t ...Args>
+constexpr auto remove_last(T<index_type,Args...> in){
+    return remove_last_impl(T<index_type>(), in);
+}
+
+template<typename A, typename B>
+struct is_same_template : std::false_type {};
+
+template<template<typename...> typename Template, typename... Args, typename... Brgs> 
+struct is_same_template<Template<Args...>,Template<Brgs...>> : std::true_type {};
+
+template<typename T, typename K>
+static constexpr bool is_same_template_v = is_same_template<T, K>::value;
+
+template<typename T>
+concept is_mdspan = requires{ is_same_template_v<T, std::experimental::mdspan<int, std::experimental::dextents<int, 1>>>;};
+
 
 
 

@@ -8,7 +8,11 @@
 #include <empi/type_traits.hpp>
 #include <type_traits>
 #include <memory.h>
+#include <experimental/mdspan>
 
+namespace empi{
+  namespace stdex = std::experimental; 
+}
 namespace empi::details {
 
 static constexpr bool no_status = false;

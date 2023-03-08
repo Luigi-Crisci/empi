@@ -14,6 +14,7 @@
 #include <empi/utils.hpp>
 #include <empi/datatype.hpp>
 #include <empi/defines.hpp>
+#include <empi/layouts.hpp>
 
 namespace empi{
 
@@ -48,6 +49,23 @@ namespace empi{
 		}
 
 		  // -------------- SEND -----------------------------------------
+
+		  template<typename K>
+		  requires (SIZE == NOSIZE) && (TAG == NOTAG)
+		  int send(K&& data, int dest, size_t size, Tag tag){
+			details::checktag<details::mpi_function::send>(tag.value, max_tag);
+			if constexpr (!is_mdspan<remove_all_t<K>>)
+			return EMPI_SEND(details::get_underlying_pointer(data), size,  details::mpi_type<T>::get_type(), dest, tag.value, communicator);
+		  }
+
+
+		  
+
+
+
+
+
+
 		  template<typename K>
 		  requires (is_valid_container<T,K> || is_valid_pointer<T,K>) && (SIZE > 0) && (TAG != -1)
 		  int send(K&& data, int dest){
