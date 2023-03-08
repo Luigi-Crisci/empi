@@ -132,8 +132,19 @@ struct is_same_template<Template<Args...>,Template<Brgs...>> : std::true_type {}
 template<typename T, typename K>
 static constexpr bool is_same_template_v = is_same_template<T, K>::value;
 
+///////////////// IS MDSPAN ////////////////
+
 template<typename T>
-concept is_mdspan = requires{ is_same_template_v<T, std::experimental::mdspan<int, std::experimental::dextents<int, 1>>>;};
+struct is_mdspan_impl : std::false_type{};
+
+template<typename ...Args>
+struct is_mdspan_impl<std::experimental::mdspan<Args...>> : std::true_type{};
+
+template<typename T>
+static constexpr bool is_mdspan_v = is_mdspan_impl<T>::value;
+
+template<typename T>
+concept is_mdspan = requires{ is_mdspan_v<std::remove_cvref_t<T>>; };
 
 
 
