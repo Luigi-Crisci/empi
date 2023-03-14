@@ -10,9 +10,8 @@
 #include <memory.h>
 #include <experimental/mdspan>
 
-namespace empi{
-  namespace stdex = std::experimental; 
-}
+namespace stdex = std::experimental; 
+
 namespace empi::details {
 
 static constexpr bool no_status = false;
@@ -40,7 +39,7 @@ MAKE_TYPE_CONVERSION(double, MPI_DOUBLE)
 template<typename T>
 struct mpi_type {
   static MPI_Datatype get_type() {
-	if constexpr (empi::has_data<T>)
+	if constexpr (has_data<T>)
 	  return mpi_type_impl<typename T::value_type>::get_type();
 	else
 	  return mpi_type_impl<std::remove_pointer_t<T>>::get_type();

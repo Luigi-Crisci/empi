@@ -13,6 +13,13 @@ option(ENABLE_UNCHECKED_FUNCTION "enable unchecked function (requires custom OMP
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(ENABLE_TESTS "Enable testing" OFF)
 
+# Force colorful diagnostic
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+       add_compile_options (-fdiagnostics-color=always)
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       add_compile_options (-fcolor-diagnostics)
+    endif ()
+
 set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/empi.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/context.hpp
@@ -22,7 +29,6 @@ set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/utils.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/message_group.hpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/request_pool.hpp
-	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/request.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/async_event.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/datatype.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/defines.hpp

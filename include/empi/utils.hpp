@@ -47,6 +47,38 @@ namespace empi::details{
 			}
 		}
 
-	}
+		template<is_mdspan T, typename Op>
+		requires (T::extents_type::rank() == 1)
+		void constexpr apply(T view, Op&& op){
+			for(int i = 0; i < view.extent(0); i++){
+				op(view[i]);
+			}
+		}
+
+		template<is_mdspan T, typename Op>
+		requires (T::extents_type::rank() == 2)
+		void constexpr apply(T view, Op&& op){
+			for(int i = 0; i < view.extent(0); i++){
+				for (int j = 0; j < view.extent(1); j++) {
+					op(view(i,j));
+				}
+			}
+		}
+
+		template<is_mdspan T, typename Op>
+		requires (T::extents_type::rank() == 3)
+		void constexpr apply(T view, Op&& op){
+			for(int i = 0; i < view.extent(0); i++){
+				for (int j = 0; j < view.extent(1); j++) {
+					for (int z = 0; i < view.extent(2); z++){
+						op(view(i,j,z));
+					}
+				}
+			}
+		}
+
+
+		
+}
 
 #endif //EMPI_PROJECT_UTILS_HPP

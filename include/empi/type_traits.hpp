@@ -33,7 +33,7 @@ constexpr bool is_greater_v = is_greater<T,v1,v2>::value;
 template<typename T, T v1, T v2>
 constexpr bool is_same_v = is_same<T,v1,v2>::value;
 
-}
+
 
 // https://stackoverflow.com/a/7943765
 template <typename T>
@@ -137,18 +137,39 @@ static constexpr bool is_same_template_v = is_same_template<T, K>::value;
 template<typename T>
 struct is_mdspan_impl : std::false_type{};
 
-template<typename ...Args>
-struct is_mdspan_impl<std::experimental::mdspan<Args...>> : std::true_type{};
+template<typename T, typename Extents, typename Layout, typename Accessor>
+struct is_mdspan_impl<std::experimental::mdspan<T,Extents,Layout,Accessor>> : std::true_type{};
 
 template<typename T>
 static constexpr bool is_mdspan_v = is_mdspan_impl<T>::value;
 
 template<typename T>
-concept is_mdspan = requires{ is_mdspan_v<std::remove_cvref_t<T>>; };
+concept is_mdspan = is_mdspan_v<std::remove_cvref_t<T>>;
+
+///////////////// size_of //////////////
+
+template<typename T>
+constexpr size_t size_of = sizeof(T);
+
+template<typename T, typename ...Args>
+constexpr size_t size_of<std::tuple<T,Args...>> = sizeof(T) + (sizeof(Args) + ...);
+
+////////////////////////// Is tuple //////////////////
+
+template<typename T>
+struct is_tuple_impl : std::false_type{};
+
+template<typename T, typename ...Args>
+struct is_tuple_impl<std::tuple<T,Args...>> : std::true_type{};
+
+template<typename T>
+static constexpr bool is_tuple_v = is_tuple_impl<T>::value;
+
+template<typename T>
+concept is_tuple = is_tuple_v<std::remove_cvref_t<T>>;
 
 
-
-
+} // namespace detail
 } // namespace empi
 
 

@@ -29,18 +29,26 @@ namespace layouts{
 		//Hardwritten for 2D layouts, will change later...
 		template<template<typename, size_t...> typename Extents, typename K, size_t ...Idx>
 		static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col){
+			return column_layout::build(view, extents, col, stdex::default_accessor<std::ranges::range_value_t<decltype(view)>>());
+		}
+
+		//Hardwritten for 2D layouts, will change later...
+		template<template<typename, size_t...> typename Extents, typename K, size_t ...Idx, typename Accessor>
+		static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col, const Accessor& acc){
 			static_assert(Extents<K,Idx...>::rank() == 2);
 			assert(col < extents.extent(1));
-			using extent_type = decltype(remove_last(extents));
+			using extent_type = decltype(details::remove_last(extents));
 			extent_type new_extents(extents.extent(0));
 			std::array stride{extents.extent(1)};
 
-			stdex::layout_stride::mapping<extent_type> column_map(new_extents, stride);
+			column_layout_impl::mapping <extent_type> column_map(new_extents, stride);
 
 			using T = std::ranges::range_value_t<decltype(view)>;
-			return stdex::mdspan<T, extent_type, std::experimental::layout_stride>(
+
+			return stdex::mdspan<T, extent_type, column_layout_impl, Accessor>(
 				std::ranges::data(view) + col,
-				column_map);
+				column_map,
+				acc);
 		}
 
 		template<typename T, typename Extents>
@@ -53,12 +61,14 @@ namespace layouts{
 			return std::move(ptr);
 		}
 
-		template<typename Extents>
-		class mapping : stdex::layout_stride::mapping<Extents> {
-			using base = stdex::layout_stride::mapping<Extents>;
-			using base::base;
+		struct column_layout_impl {
+			
+			template<typename Extents>
+			struct mapping : stdex::layout_stride::mapping<Extents> {
+				using base = stdex::layout_stride::mapping<Extents>;
+				using base::base;
+			};
 		};
-
 	};
 
 	struct contiguous_layout{
@@ -68,14 +78,26 @@ namespace layouts{
 			using extent_type = stdex::dextents<std::size_t, 1>;
 			extent_type extents(std::ranges::size(view));
 			using T = std::ranges::range_value_t<decltype(view)>;
-			return std::move(stdex::mdspan<T, extent_type, std::experimental::layout_right>(std::ranges::data(view),
+			return std::move(stdex::mdspan<T, extent_type, contiguous_layout_impl>(std::ranges::data(view),
 																							extents));
 		}
 
-		template<typename Extents>
-		class mapping : stdex::layout_right::mapping<Extents> {
-			using base = stdex::layout_right::mapping<Extents>;
-			using base::base;
+		template<typename Accessor>
+		static auto build(std::ranges::forward_range auto&& view, const Accessor& acc){
+			using extent_type = stdex::dextents<std::size_t, 1>;
+			extent_type extents(std::ranges::size(view));
+			using T = std::ranges::range_value_t<decltype(view)>;
+			return std::move(stdex::mdspan<T, extent_type, contiguous_layout_impl,Accessor>(std::ranges::data(view),
+																				   contiguous_layout_impl::mapping<extent_type>(extents),
+																				   acc));
+		}
+
+		struct contiguous_layout_impl {
+			template<typename Extents>
+			struct mapping : stdex::layout_right::mapping<Extents> {
+				using base = stdex::layout_right::mapping<Extents>;
+				using base::base;
+			};
 		};
 	};
 
@@ -88,15 +110,18 @@ namespace layouts{
 		struct struct_accessor{
 
 			using offset_policy = stdex::default_accessor<Element_type>;
-			using element_type = function_traits<Callable>::result_type;
-			using reference = element_type&;
+			using element_type = details::function_traits<Callable>::result_type;
+			using reference = std::conditional_t<details::is_tuple<element_type>,element_type, element_type&>;
 			using data_handle_type = Element_type*;
 			
 			constexpr struct_accessor() : proj(default_access<Element_type>) {};
 			explicit struct_accessor(Callable&& c) : proj(c) {}
 
 			constexpr reference access(data_handle_type p, size_t i) const noexcept{
-					return proj(p[i]);
+					if constexpr (std::is_rvalue_reference_v<reference>)
+						return (proj(std::move(p[i])));
+					else
+						return proj(p[i]);
 			}
 
 			private:
@@ -110,8 +135,6 @@ namespace layouts{
 
 }
 	
-	
-
 
 
 }

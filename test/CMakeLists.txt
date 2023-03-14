@@ -18,5 +18,5 @@ endmacro()
 
 add_test_executable(test_layouts test_layouts.cpp)
 add_test_executable(test_type_traits test_type_traits.cpp)
-
+add_test_executable(test_message_group_hdl test_message_group_hdl.cpp)
 
