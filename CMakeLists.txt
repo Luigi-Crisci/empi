@@ -33,6 +33,7 @@ set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/datatype.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/defines.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts_traits.hpp
 	)
 
 

@@ -1,13 +1,22 @@
 #ifndef INCLUDE_EMPI_COMPACT
 #define INCLUDE_EMPI_COMPACT
-
 #include <memory>
+
 #include <experimental/mdspan>
 #include <empi/type_traits.hpp>
 #include <empi/datatype.hpp>
 #include <empi/utils.hpp>
+#include <empi/layouts_traits.hpp>
 
 namespace empi::layouts{
+
+// Basic pointer wrapper with a get() function to mock unique_ptr
+template<typename T>
+struct pointer_wrapper{
+	constexpr T* get() noexcept {return _ptr;}	
+	T* _ptr;
+};
+
 
 /**
 	Plain compact strategy for non-contiguous, sparse data 
@@ -18,6 +27,17 @@ auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& vi
 	auto ptr = new element_type[view.size()];
 	empi::details::apply(view, [p = ptr](Accessor::reference e) mutable {*p=e; p++;});
 	std::unique_ptr<element_type> uptr(std::move(ptr)); 
+	return uptr;
+}
+
+/**
+	If data are contiguous, and we have a trivial accessor we don't have to make any copies
+*/
+template<typename T, template<typename , size_t...> typename Extents, typename Layout, typename Accessor, typename idx_type, size_t ...idx>
+requires (is_trivial_view<Layout, Accessor>)
+auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
+	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+	pointer_wrapper uptr(&view.data_handle()); 
 	return uptr;
 }
 
