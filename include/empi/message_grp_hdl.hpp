@@ -55,14 +55,11 @@ namespace empi{
 		  int send_new(K&& data, int dest, size_t size, Tag tag){
 			details::checktag<details::mpi_function::send>(tag.value, max_tag);
 			if constexpr (!details::is_mdspan<K>){
-				// const auto layout_data = layouts::contiguous_layout::build(data);
 				return EMPI_SEND(details::get_underlying_pointer(data), size,  details::mpi_type<T>::get_type(), dest, tag.value, communicator);
 			}
 			else{
 				using Accessor = typename details::remove_all_t<K>::accessor_type;
-				//Compact the data
 				auto&& ptr = layouts::compact(data);
-				std::cout << "Sending size: " << size * details::size_of<typename Accessor::element_type> << "\n";
 				return EMPI_SEND(reinterpret_cast<char*>(ptr.get()), size * details::size_of<typename Accessor::element_type>,  MPI_BYTE, dest, tag.value, communicator);
 			}
 		  }
@@ -80,14 +77,9 @@ namespace empi{
 			}
 			else {
 				using Accessor = typename details::remove_all_t<K>::accessor_type;
-				std::cout << "Receiving size: " << size * details::size_of<typename Accessor::element_type> << "\n";
 				return EMPI_RECV(reinterpret_cast<char*>(data.data_handle()), size * details::size_of<typename Accessor::element_type>,  MPI_BYTE, src, tag.value, communicator, &status);
 			}
 		  }
-
-
-
-
 
 		  template<typename K>
 		  requires (details::is_valid_container<T,K> || details::is_valid_pointer<T,K>) && (SIZE > 0) && (TAG != -1)

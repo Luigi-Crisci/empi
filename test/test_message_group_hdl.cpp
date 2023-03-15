@@ -1,8 +1,10 @@
+#include "utils.hpp"
 #include <cstdint>
 #include <experimental/mdspan>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include <empi/empi.hpp>
+#include <empi/utils.hpp>
 
 namespace stdex = std::experimental;
 
@@ -160,28 +162,17 @@ TEST_CASE("Send and receive a column of a subest of fields of a struct", "[mgh][
 	empi::Context ctx{nullptr,nullptr};
 	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
 
-	struct S{
-		int x,y;
-		double z;
-	};
-
-	std::vector<S> v(36);
+	std::vector<trivial_struct> v(36);
 	if(mg->rank() == 0){
-		std::transform(v.begin(), v.end(), v.begin(), [i=0](S& s) mutable { s.x = i++; s.y = i++, s.z = (static_cast<double>(i) * 1.2); i++; return s;});
-
-		for (int i = 0; i < 36; i++) {
-			if(i % 6 == 0) std::cout << "\n";
-			std::cout << "\t{" << v[i].x << "," << v[i].y << "," << v[i].z << "}  ";
-  		}
-		std::cout << "\n";
+		std::transform(v.begin(), v.end(), v.begin(), [i=0](trivial_struct& s) mutable { s.x = i++; s.y = i++, s.z = (static_cast<float>(i) * 1.2); i++; return s;});
 	}
 
 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
 		if(mg->rank() == 0){
-			auto proj = [](S& s) -> std::tuple<int,float> {return {s.x,s.z};};
 			stdex::extents<size_t, 6,6> ext;
 			constexpr int col = 0;
-			auto view = empi::layouts::column_layout::build(v, ext, col, empi::layouts::struct_layout::struct_accessor<S, decltype(proj)>(std::move(proj)));
+			auto acc = empi::layouts::make_struct_accessor<trivial_struct>(STRUCT_FIELDS(trivial_struct,x,z));
+			auto view = empi::layouts::column_layout::build(v, ext, col,acc);
 			for (int i = 0; i < 6; i++) {
 				REQUIRE(std::get<0>(view(i)) == i * 3 * 6 + col * 3);
 				REQUIRE(std::get<1>(view(i)) == Catch::Approx((i * 3 * 6 + col * 3 + 2) * 1.2));
@@ -193,12 +184,6 @@ TEST_CASE("Send and receive a column of a subest of fields of a struct", "[mgh][
 			std::vector<std::tuple<int,float>> dest(6);
 			mgh.recv_new(dest, 0, 6, empi::Tag{1}, s);
 
-			for (auto i: dest) {
-				std::cout << "\t{" << std::get<0>(i) << "," << std::get<1>(i) << "}\n";
-			}
-				std::cout << "\n";
-
-			
 			for (int i = 0; i < 6; i++) {
 				REQUIRE(std::get<0>(dest[i]) == i*3 * 6);
 				REQUIRE(std::get<1>(dest[i]) == Catch::Approx((i*3 * 6 + 2) * 1.2));
