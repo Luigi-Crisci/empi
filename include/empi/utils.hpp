@@ -25,7 +25,21 @@ namespace empi::details{
 		static inline auto get_underlying_pointer(const T* buf){
 		  return buf;
 		}
+
+		template<typename T>
+		requires std::is_arithmetic_v<T>
+		static inline auto get_underlying_pointer(T& buf){
+		  return &buf;
+		}
+
+		template<typename T>
+		requires std::is_arithmetic_v<T>
+		static inline auto get_underlying_pointer(const T& buf){
+		  return &buf;
+		}
+
 		
+
 		template<typename T>
 		inline constexpr auto abs(T& a, T&b) -> decltype(std::declval<T>() - std::declval<T>()) {
 			return std::abs(static_cast<long long>(a) - static_cast<long long>(b));
@@ -77,7 +91,28 @@ namespace empi::details{
 			}
 		}
 
+//////////////////////// Struct layout lambda helper ///////////////////////////////
+#define PARENS ()
 
+#define EXPAND(...) EXPAND4(EXPAND4(EXPAND4(EXPAND4(__VA_ARGS__))))
+#define EXPAND4(...) EXPAND3(EXPAND3(EXPAND3(EXPAND3(__VA_ARGS__))))
+#define EXPAND3(...) EXPAND2(EXPAND2(EXPAND2(EXPAND2(__VA_ARGS__))))
+#define EXPAND2(...) EXPAND1(EXPAND1(EXPAND1(EXPAND1(__VA_ARGS__))))
+#define EXPAND1(...) __VA_ARGS__
+
+#define FOR_EACH(macro, _struct, ...)                                    \
+  __VA_OPT__(EXPAND(FOR_EACH_HELPER(macro,_struct, __VA_ARGS__)))
+#define FOR_EACH_HELPER(macro, _struct, a1, ...)                         \
+  macro(_struct, a1)                                                     \
+  __VA_OPT__(,FOR_EACH_AGAIN PARENS (macro, _struct, __VA_ARGS__))
+#define FOR_EACH_AGAIN() FOR_EACH_HELPER
+
+#define F(_struct, field) _struct.field
+
+#define STRUCT_FIELDS(_struct, ...) \
+    [](_struct& s) -> auto {return std::tuple{FOR_EACH(F,s,__VA_ARGS__)};}
+
+//////////////////////////////////
 		
 }
 

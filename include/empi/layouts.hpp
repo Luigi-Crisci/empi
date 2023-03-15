@@ -1,25 +1,14 @@
 #ifndef INCLUDE_EMPI_LAYOUTS
 #define INCLUDE_EMPI_LAYOUTS
 
-#include "empi/datatype.hpp"
 #include <functional>
 #include <memory>
+#include <cassert>
+#include <utility>
 
-namespace empi{
+#include <empi/datatype.hpp>
 
-	template<typename Extents = stdex::dextents<size_t, 1>, typename Layout = stdex::layout_right> 
-	auto make_mdspan(std::ranges::forward_range auto&& view,typename Layout::template mapping<Extents> l){
-		using T = std::ranges::range_value_t<decltype(view)>;
-		return stdex::mdspan<T, Extents, Layout>(std::ranges::data(view), l);
-	}
-
-	template<typename T, typename Extents = stdex::dextents<size_t, 1>, typename Layout = stdex::layout_right>
-	requires std::is_arithmetic_v<std::remove_cvref_t<T>>
-	auto make_mdspan(T& value, Extents extents){
-		return make_mdspan(std::span(&value,1), extents, stdex::layout_right::mapping(extents));
-	}
-
-namespace layouts{
+namespace empi::layouts{
 
 	template<typename T, typename Extents, typename AccessPolicy = stdex::default_accessor<T>>
 	using column_view = stdex::mdspan<T, Extents,stdex::layout_stride,AccessPolicy>;
@@ -28,13 +17,13 @@ namespace layouts{
 		
 		//Hardwritten for 2D layouts, will change later...
 		template<template<typename, size_t...> typename Extents, typename K, size_t ...Idx>
-		static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col){
+		[[nodiscard]] static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col){
 			return column_layout::build(view, extents, col, stdex::default_accessor<std::ranges::range_value_t<decltype(view)>>());
 		}
 
 		//Hardwritten for 2D layouts, will change later...
 		template<template<typename, size_t...> typename Extents, typename K, size_t ...Idx, typename Accessor>
-		static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col, const Accessor& acc){
+		[[nodiscard]] static auto build(std::ranges::forward_range auto&& view, Extents<K,Idx...> extents, size_t col, const Accessor& acc){
 			static_assert(Extents<K,Idx...>::rank() == 2);
 			assert(col < extents.extent(1));
 			using extent_type = decltype(details::remove_last(extents));
@@ -51,16 +40,6 @@ namespace layouts{
 				acc);
 		}
 
-		template<typename T, typename Extents>
-		static std::unique_ptr<T[]>&& compact(const column_view<T,Extents>& view){
-			
-			auto ptr = std::make_unique<T[]>(view.extent(0));
-			for (size_t i = 0; i < view.extent(0); ++i)
-				ptr[i] = view(i);
-
-			return std::move(ptr);
-		}
-
 		struct column_layout_impl {
 			
 			template<typename Extents>
@@ -74,7 +53,7 @@ namespace layouts{
 	struct contiguous_layout{
 		// Wraps data into plain, 1D mdspan.
 		// Used for implicit conversions
-		static auto build(std::ranges::forward_range auto&& view){
+		[[nodiscard]] static auto build(std::ranges::forward_range auto&& view){
 			using extent_type = stdex::dextents<std::size_t, 1>;
 			extent_type extents(std::ranges::size(view));
 			using T = std::ranges::range_value_t<decltype(view)>;
@@ -83,7 +62,7 @@ namespace layouts{
 		}
 
 		template<typename Accessor>
-		static auto build(std::ranges::forward_range auto&& view, const Accessor& acc){
+		[[nodiscard]] static auto build(std::ranges::forward_range auto&& view, const Accessor& acc){
 			using extent_type = stdex::dextents<std::size_t, 1>;
 			extent_type extents(std::ranges::size(view));
 			using T = std::ranges::range_value_t<decltype(view)>;
@@ -129,15 +108,17 @@ namespace layouts{
 		};
 			
 	};
-
-
-
-
-}
 	
 
+	template<typename S, typename Callable>
+	auto make_struct_accessor(Callable&& c){
+		return struct_layout::struct_accessor<S, Callable>(std::forward<Callable>(c));
+	}
+
+
+
+
 
 }
-
 
 #endif /* INCLUDE_EMPI_LAYOUTS */
