@@ -93,22 +93,18 @@ concept has_value_type = requires(T t){
   typename T::value_type;
 };
 
+template<typename T>
+concept has_accessor_type = requires(T t){
+  typename T::accessor_type;
+};
+
+
 template<typename T, typename K>
 concept is_valid_container = has_data<K> && std::is_same_v<T, typename std::remove_reference_t<K>::value_type>;
 
 template<typename T, typename K>
 concept is_valid_pointer = std::is_same_v<T,remove_all_t<K>>;
 
-
-template<typename T>
-struct get_true_type{
-  using type = T;
-};
-
-template<has_value_type T>
-struct get_true_type<T>{
-  using type = typename T::value_type;
-};
 
 template<template<typename index_type,size_t ...Args> typename T,typename index_type, size_t FirstEntryFrom, size_t ...TupleTypesResult, size_t ...TupleTypesFrom>
 constexpr auto remove_last_impl(T<index_type,TupleTypesResult...> res, T<index_type, FirstEntryFrom, TupleTypesFrom...> src){
@@ -167,6 +163,33 @@ static constexpr bool is_tuple_v = is_tuple_impl<T>::value;
 
 template<typename T>
 concept is_tuple = is_tuple_v<std::remove_cvref_t<T>>;
+
+//////////////////////// Get type //////////////////////
+template<typename T>
+struct get_true_type{
+  using type = T;
+};
+
+template<typename T>
+requires has_value_type<T> && (!has_accessor_type<T>)
+struct get_true_type<T>{
+  using type = typename T::value_type;
+};
+
+template<is_mdspan T>
+struct get_true_type<T>{
+  using type = typename details::remove_all_t<T>::accessor_type::element_type;
+};
+
+template<typename T>
+requires std::is_pointer_v<T>
+struct get_true_type<T>{
+  using type = std::remove_pointer_t<T>;
+};
+
+template<typename T>
+using get_true_type_t = get_true_type<remove_all_t<T>>::type;
+
 
 
 } // namespace detail

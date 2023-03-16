@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <empi/datatype.hpp>
+#include <empi/defines.hpp>
 
 namespace empi::layouts{
 

@@ -1,6 +1,7 @@
 #ifndef INCLUDE_EMPI_DEFINES
 #define INCLUDE_EMPI_DEFINES
 
+
 #if defined(ENABLE_UNCHECKED_FUNCTION)
 	#define EMPI_SEND MPI_USend
 	#define EMPI_ISEND MPI_IUsend
@@ -26,6 +27,8 @@
 #endif
 
 namespace empi{
+	
+	namespace stdex = std::experimental; 
 
 	constexpr int NOSIZE = 0;
 

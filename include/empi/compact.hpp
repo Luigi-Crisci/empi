@@ -4,19 +4,21 @@
 
 #include <experimental/mdspan>
 #include <empi/type_traits.hpp>
-#include <empi/datatype.hpp>
-#include <empi/utils.hpp>
+#include <empi/defines.hpp>
 #include <empi/layouts_traits.hpp>
+#include <empi/utils.hpp>
 
-namespace empi::layouts{
 
+namespace empi::details {
 // Basic pointer wrapper with a get() function to mock unique_ptr
 template<typename T>
 struct pointer_wrapper{
 	constexpr T* get() noexcept {return _ptr;}	
 	T* _ptr;
 };
+}
 
+namespace empi::layouts{
 
 /**
 	Plain compact strategy for non-contiguous, sparse data 
@@ -35,9 +37,9 @@ auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& vi
 */
 template<typename T, template<typename , size_t...> typename Extents, typename Layout, typename Accessor, typename idx_type, size_t ...idx>
 requires (is_trivial_view<Layout, Accessor>)
-auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
+auto constexpr compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-	pointer_wrapper uptr(&view.data_handle()); 
+	details::pointer_wrapper uptr(&view.data_handle()); 
 	return uptr;
 }
 
@@ -49,6 +51,15 @@ auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& vi
 		Said so, we can potentially specialize the compact function in several flavours  
 */
 
+
+}
+
+namespace empi::details{
+template<is_mdspan T>
+static constexpr inline auto get_underlying_pointer(const T& buf){
+  auto&& ptr = empi::layouts::compact(buf);
+  return ptr.get();
+}
 
 }
 

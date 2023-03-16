@@ -3,7 +3,6 @@
 #include <type_traits>
 #include <empi/layouts.hpp>
 #include <empi/type_traits.hpp>
-#include <empi/datatype.hpp>
 
 namespace empi::layouts{
 

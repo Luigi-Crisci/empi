@@ -10,7 +10,7 @@ TEST_CASE("Call compact on a trivial layout and accessor does not produce copies
 	auto view = empi::layouts::contiguous_layout::build(v);
 	REQUIRE(empi::layouts::is_trivial_view<decltype(view)::layout_type, decltype(view)::accessor_type>);
 	auto ptr = empi::layouts::compact(view);
-	REQUIRE(empi::details::is_same_template_v<empi::layouts::pointer_wrapper<int>, decltype(ptr)>);
+	REQUIRE(empi::details::is_same_template_v<empi::details::pointer_wrapper<int>, decltype(ptr)>);
 }
 
 TEST_CASE("Call compact on a contiguous layout and non-trivial accessor produces a copy", "[compact][layouts]"){

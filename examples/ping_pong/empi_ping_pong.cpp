@@ -39,11 +39,11 @@ int main(int argc, char **argv) {
           // Warm up
           mgh.barrier();
           if(rank == 0){
-            mgh.send(myarr.data(),1,n);
-            mgh.recv(myarr.data(),1,n,status);
+            mgh.send(myarr,1,n);
+            mgh.recv(myarr,1,n,status);
           }else{
-            mgh.recv(myarr.data(),0,n,status);
-            mgh.send(myarr.data(),0,n);
+            mgh.recv(myarr,0,n,status);
+            mgh.send(myarr,0,n);
           }
           mgh.barrier();
 
@@ -52,11 +52,11 @@ int main(int argc, char **argv) {
 
           for (auto iter = 0; iter < max_iter; iter++) {
             if(rank == 0){
-              mgh.send(myarr.data(),1,n);
-              mgh.recv(myarr.data(),1,n,status);
+              mgh.send(myarr,1,n);
+              mgh.recv(myarr,1,n,status);
             } else {
-              mgh.recv(myarr.data(),0,n,status);
-              mgh.send(myarr.data(),0,n);
+              mgh.recv(myarr,0,n,status);
+              mgh.send(myarr,0,n);
             }
           }
 

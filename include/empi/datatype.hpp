@@ -5,12 +5,12 @@
 #ifndef EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 #define EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 
-#include <empi/type_traits.hpp>
 #include <type_traits>
 #include <memory.h>
-#include <experimental/mdspan>
 
-namespace stdex = std::experimental; 
+#include <experimental/mdspan>
+#include <empi/type_traits.hpp>
+
 
 namespace empi::details {
 
@@ -45,6 +45,36 @@ struct mpi_type {
 	  return mpi_type_impl<std::remove_pointer_t<T>>::get_type();
   }
 };
+
+#define empi_byte_cast(ptr) (static_cast<std::byte*>(static_cast<void*>(ptr)))
+
+template<typename T>
+requires has_data<T>
+static inline auto get_underlying_pointer(T&& buf){
+  return buf.data();
+}
+
+template<typename T>
+static inline auto get_underlying_pointer(T* buf){
+  return buf;
+}
+
+template<typename T>
+static inline auto get_underlying_pointer(const T* buf){
+  return buf;
+}
+
+template<typename T>
+requires std::is_arithmetic_v<T>
+static inline auto get_underlying_pointer(T& buf){
+  return &buf;
+}
+
+template<typename T>
+requires std::is_arithmetic_v<T>
+static inline auto get_underlying_pointer(const T& buf){
+  return &buf;
+}
 
 }
 

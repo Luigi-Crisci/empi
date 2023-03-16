@@ -5,6 +5,9 @@
 #include <empi/empi.hpp>
 #include <empi/type_traits.hpp>
 #include <empi/layouts_traits.hpp>
+#include <empi/defines.hpp>
+
+namespace stdex = std::experimental;
 
 TEST_CASE("is_mdspan", "[type_traits]") {
 	using namespace std::experimental;

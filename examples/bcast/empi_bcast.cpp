@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
       [&](empi::MessageGroupHandler<char, empi::Tag{0}, empi::NOSIZE> &mgh) {
         // Warmup
         message_group->barrier();
-        mgh.Bcast(myarr.data(), 0, n);
+        mgh.Bcast(myarr, 0, n);
         message_group->barrier();
 
         //main measurement
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
           t_start = MPI_Wtime();
 
         for (auto iter = 0; iter < max_iter; iter++) {
-          mgh.Bcast(myarr.data(), 0, n);
+          mgh.Bcast(myarr, 0, n);
         }
 
         message_group->barrier();

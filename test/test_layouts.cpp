@@ -5,6 +5,8 @@
 
 #include <empi/empi.hpp>
 
+namespace stdex = std::experimental;
+
 template<typename T, class Extents, class Layout>
 requires (Extents::rank() == 1)
 void print(const stdex::mdspan<T, Extents, Layout>& view){
