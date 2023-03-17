@@ -192,81 +192,81 @@ namespace stdex = std::experimental;
 // 	});
 // }
 
-TEST_CASE("Send and receive scalar values", "[mgh]"){
-	empi::Context ctx{nullptr,nullptr};
-	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
-
-	auto tag = empi::Tag{0};
-	mg->run([&](empi::MessageGroupHandler<float>& mgh){
-		// // Send an int
-		// if(mg->rank() == 0){
-		// 	int val = 5;
-		// 	mgh.send(val,1,1,tag);
-		// }
-		// else {
-		// 	int res;
-		// 	MPI_Status s;
-		// 	mgh.recv(res,0,1,tag, s);
-		// 	REQUIRE(res == 5);
-		// }
-
-		// // Send a pointer
-		// if(mg->rank() == 0){
-		// 	int val = 5;
-		// 	mgh.send(&val,1,1,tag);
-		// }
-		// else {
-		// 	int res;
-		// 	MPI_Status s;
-		// 	mgh.recv(&res,0,1,tag, s);
-		// 	REQUIRE(res == 5);
-		// }
-
-		// // Send a string
-		// if(mg->rank() == 0){
-		// 	std::string val = "hello";
-		// 	mgh.send(val,1,val.size(),tag);
-		// }
-		// else {
-		// 	std::string res;
-		// 	res.resize(5);
-		// 	MPI_Status s;
-		// 	mgh.recv(res,0,5,tag, s);
-		// 	REQUIRE(res == "hello");
-		// }
-
-		// // Send a C string
-		// if(mg->rank() == 0){
-		// 	char* val = "hello";
-		// 	REQUIRE(strlen(val) == strlen("hello"));
-		// 	mgh.send(val,1,strlen("hello") + 1,tag);
-		// }
-		// else {
-		// 	char res[256];
-		// 	MPI_Status s;
-		// 	mgh.recv(res,0,6,tag, s);
-		// 	REQUIRE(strlen(res) == strlen("hello"));
-		// 	REQUIRE(strcmp(res, "hello") == 0);
-		// }
-
-		// Send an int vector
-		if(mg->rank() == 0){
-			std::vector<int> val(16);
-			std::iota(val.begin(), val.end(), 0);
-			mgh.send(val,1,val.size(),tag);
-		}
-		else {
-			int res[16];
-			MPI_Status s;
-			mgh.recv(res,0,16,tag, s);
-			for (int i = 0; i < 16; i++) {
-				REQUIRE(res[i] == i);
-			}
-		}
-	});
-}
-
 // TEST_CASE("Send and receive scalar values", "[mgh]"){
+// 	empi::Context ctx{nullptr,nullptr};
+// 	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
+
+// 	auto tag = empi::Tag{0};
+// 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
+// 		// // Send an int
+// 		// if(mg->rank() == 0){
+// 		// 	int val = 5;
+// 		// 	mgh.send(val,1,1,tag);
+// 		// }
+// 		// else {
+// 		// 	int res;
+// 		// 	MPI_Status s;
+// 		// 	mgh.recv(res,0,1,tag, s);
+// 		// 	REQUIRE(res == 5);
+// 		// }
+
+// 		// // Send a pointer
+// 		// if(mg->rank() == 0){
+// 		// 	int val = 5;
+// 		// 	mgh.send(&val,1,1,tag);
+// 		// }
+// 		// else {
+// 		// 	int res;
+// 		// 	MPI_Status s;
+// 		// 	mgh.recv(&res,0,1,tag, s);
+// 		// 	REQUIRE(res == 5);
+// 		// }
+
+// 		// // Send a string
+// 		// if(mg->rank() == 0){
+// 		// 	std::string val = "hello";
+// 		// 	mgh.send(val,1,val.size(),tag);
+// 		// }
+// 		// else {
+// 		// 	std::string res;
+// 		// 	res.resize(5);
+// 		// 	MPI_Status s;
+// 		// 	mgh.recv(res,0,5,tag, s);
+// 		// 	REQUIRE(res == "hello");
+// 		// }
+
+// 		// // Send a C string
+// 		// if(mg->rank() == 0){
+// 		// 	char* val = "hello";
+// 		// 	REQUIRE(strlen(val) == strlen("hello"));
+// 		// 	mgh.send(val,1,strlen("hello") + 1,tag);
+// 		// }
+// 		// else {
+// 		// 	char res[256];
+// 		// 	MPI_Status s;
+// 		// 	mgh.recv(res,0,6,tag, s);
+// 		// 	REQUIRE(strlen(res) == strlen("hello"));
+// 		// 	REQUIRE(strcmp(res, "hello") == 0);
+// 		// }
+
+// 		// Send an int vector
+// 		if(mg->rank() == 0){
+// 			std::vector<int> val(16);
+// 			std::iota(val.begin(), val.end(), 0);
+// 			mgh.send(val,1,val.size(),tag);
+// 		}
+// 		else {
+// 			int res[16];
+// 			MPI_Status s;
+// 			mgh.recv(res,0,16,tag, s);
+// 			for (int i = 0; i < 16; i++) {
+// 				REQUIRE(res[i] == i);
+// 			}
+// 		}
+// 	});
+// }
+
+// TEST_CASE("Bcast scalar values", "[mgh]"){
 // 	empi::Context ctx{nullptr,nullptr};
 // 	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
 
@@ -283,4 +283,67 @@ TEST_CASE("Send and receive scalar values", "[mgh]"){
 // 		}
 // 	});
 // }
+
+// TEST_CASE("Gatherv scalar values using range displacements", "[mgh]"){
+// 	empi::Context ctx{nullptr,nullptr};
+// 	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
+
+// 	auto tag = empi::Tag{0};
+// 	std::vector<int> v(32);
+// 	std::iota(v.begin(), v.end(), 0 + 32 * mg->rank());
+	
+// 	std::vector<int> res_vector;
+// 	res_vector.resize(32 * mg->size());
+
+// 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
+// 		const int send_size = 32;
+// 		std::vector<int> recv_sizes;
+// 		std::vector<int> displacements;
+		
+// 		for (int i = 0; i < mg->size(); i++){
+// 			recv_sizes.push_back(send_size);
+// 			displacements.push_back(i * send_size);
+// 		}	
+		
+// 		mgh.gatherv(0, v, send_size, res_vector, recv_sizes, displacements);
+
+// 		if(mg->rank() == 0){
+// 			for(int i = 0; i < 32 * mg->size(); i++){
+// 				REQUIRE(res_vector[i] == i);
+// 			}
+// 		}
+// 	});
+// }
+
+TEST_CASE("Gatherv scalar values using raw pointer displacements", "[mgh]"){
+	empi::Context ctx{nullptr,nullptr};
+	auto mg = ctx.create_message_group(MPI_COMM_WORLD);
+
+	auto tag = empi::Tag{0};
+	std::vector<int> v(32);
+	std::iota(v.begin(), v.end(), 0 + 32 * mg->rank());
+	
+	std::vector<int> res_vector;
+	res_vector.resize(32 * mg->size());
+
+	mg->run([&](empi::MessageGroupHandler<float>& mgh){
+		const int send_size = 32;
+		std::vector<int> recv_sizes;
+		std::vector<int> displacements;
+		
+		for (int i = 0; i < mg->size(); i++){
+			recv_sizes.push_back(send_size);
+			displacements.push_back(i * send_size);
+		}	
+		
+		mgh.gatherv(0, v, send_size, res_vector, recv_sizes.data(), displacements.data());
+
+		if(mg->rank() == 0){
+			for(int i = 0; i < 32 * mg->size(); i++){
+				REQUIRE(res_vector[i] == i);
+			}
+		}
+	});
+}
+
 

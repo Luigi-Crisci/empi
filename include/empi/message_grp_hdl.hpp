@@ -137,16 +137,15 @@ namespace empi{
 
 		  // ------------------------- START ISEND --------------------------
 		  template<typename K>
-		  requires (SIZE > 0) && (TAG != -1)
 		  inline std::shared_ptr<async_event>& _isend_impl(K&& data, const int dest, const size_t size, const Tag tag){
 			auto&& event = _request_pool->get_req();
 			using element_type = details::get_true_type_t<K>;
 			if constexpr (!details::is_mdspan<K>){
-				return EMPI_ISEND(empi_byte_cast(details::get_underlying_pointer(std::forward<K>(data))), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator, event->request.get());
+				EMPI_ISEND(empi_byte_cast(details::get_underlying_pointer(std::forward<K>(data))), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator, event->request.get());
 			}
 			else{
 				auto&& ptr = layouts::compact(std::forward<K>(data));
-				return EMPI_ISEND(empi_byte_cast(ptr.get()), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
+				EMPI_ISEND(empi_byte_cast(ptr.get()), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
 			}
 			return event;
 		  }
@@ -186,11 +185,11 @@ namespace empi{
 
 	  // ------------------------- START URECV --------------------------
 		template<typename K>
-		requires (SIZE > 0) && (TAG >= -2)
 		inline std::shared_ptr<async_event>&  _irecv_impl(K&& data, const int src, const size_t size, const Tag tag) const {
 		  	auto&& event = _request_pool->get_req();
 			using element_type = details::get_true_type_t<K>;
-			return EMPI_IRECV(empi_byte_cast(details::get_underlying_pointer(data)), size * details::size_of<element_type>,  MPI_BYTE, src, tag.value, communicator, event->request.get());
+			EMPI_IRECV(empi_byte_cast(details::get_underlying_pointer(data)), size * details::size_of<element_type>,  MPI_BYTE, src, tag.value, communicator, event->request.get());
+			return event;
 		}
 
 		template<typename K>
@@ -244,9 +243,29 @@ namespace empi{
 
 	  // ------------------------- END BCAST --------------------------
 	  // ------------------------- IBCAST --------------------------
+	  template<typename K>
+	  int _ibcast_impl(K&& data, const int root, const size_t size){
+		using element_type = details::get_true_type_t<K>;
+		auto&& event = _request_pool->get_req();
+		element_type* ptr = details::get_underlying_pointer(std::forward<K>(data));
+		return EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE,root,communicator, event->get_request());		
+	  }
+
+      template<typename K>
+	  requires (SIZE == NOSIZE)
+	  int ibcast(K&& data, const int root, const size_t size){
+		// Check size...
+		return _ibcast_impl(std::forward<K>(data), root, size);
+	  }
 
 	  template<typename K>
-	  requires (details::is_valid_container<T,K> || details::is_valid_pointer<T,K>) && (SIZE > 0)
+	  requires (SIZE > 0)
+	  int ibcast(K&& data, const int root){
+	  	return _ibcast_impl(std::forward<K>(data), root, SIZE);
+	  }
+	  
+	  template<typename K>
+	  requires (SIZE > 0)
 	  std::shared_ptr<async_event>& Ibcast(K&& data, const int root){
 		auto&& event = _request_pool->get_req();
 		event->res = EMPI_IBCAST(details::get_underlying_pointer(data), SIZE, details::mpi_type<T>::get_type(),root,communicator, event->get_request());
@@ -254,7 +273,7 @@ namespace empi{
 	  }
 
 	  template<typename K>
-	  requires (details::is_valid_container<T,K> || details::is_valid_pointer<T,K>) && (SIZE == NOSIZE)
+	  requires (SIZE == NOSIZE)
 	  std::shared_ptr<async_event>& Ibcast(K&& data, const int root, const size_t size){
 		auto&& event = _request_pool->get_req();
 		event->res = EMPI_IBCAST(details::get_underlying_pointer(data), size, details::mpi_type<T>::get_type(),root,communicator, event->get_request());
@@ -263,7 +282,18 @@ namespace empi{
 
 	  // ------------------------- END IBCAST --------------------------
 	  // ------------------------- ALLREDUCE --------------------------
-
+	  
+	  /**
+	  	Reductions introduce a lot of problems. 
+		MPI_BYTE cannot be used in reductions for several reasons:
+			1) Reduction algorithms split data across nodes and apply operators on them, which is impossible 
+			   with bytes as you have to cast-back the data to the actual elements to manipulate it, and 
+			   MPI does not hold that information
+			2) If splitting size is not multiple of the orginal datatype, the last element of each phase will
+			   be truncated
+			3) MPI used types to allocate identity values, the minimum and the maximum value and so on.
+		So, for now we will just skip reductions and stick with the old techniques (MPI base types and no layouts)
+	  */
 	  template<typename K>
 	  requires (details::is_valid_container<T,K> || details::is_valid_pointer<T,K>) && (SIZE > 0)
 	  int Allreduce(K&& sendbuf, K&& recvbuf, MPI_Op op){
@@ -277,19 +307,67 @@ namespace empi{
 	  }
 
 	  // ------------------------- END ALLREDUCE --------------------------
+
 	  // ------------------------- GATHERV --------------------------
-	template<typename K>
-	  requires (details::is_valid_container<T,K> || details::is_valid_pointer<T,K>)
-	  int gatherv(const int root, K&& sendbuf,int sendcount, K&& recvbuf, int* recvcounts, int* displacements){
-		return EMPI_GATHERV(details::get_underlying_pointer(sendbuf), 
-						   sendcount,
-						   details::mpi_type<T>::get_type(),
-						   details::get_underlying_pointer(recvbuf),
-						   recvcounts,
-						   displacements,
-						   details::mpi_type<T>::get_type(),
+	  template<typename K>
+	  int _gatherv_impl(const int root,
+	  					K&& sendbuf,
+						int sendcount,
+						K&& recvbuf, 
+	  				    details::range_has_type<int> auto&& recvcounts, 
+						details::range_has_type<int> auto&& displacements)
+	  {
+		using send_element_type = details::get_true_type_t<K>;
+		using recv_element_type = details::get_true_type_t<K>;
+		send_element_type* send_ptr = details::get_underlying_pointer(std::forward<K>(sendbuf));
+		recv_element_type* recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
+		
+		// Each node receives recvcount * size bytes
+		constexpr auto byte_conv = [](auto& e){ const_cast<int&>(e) = e * details::size_of<send_element_type>;};
+		std::ranges::for_each(recvcounts,byte_conv);
+		std::ranges::for_each(displacements,byte_conv);
+
+		return EMPI_GATHERV(empi_byte_cast(send_ptr), 
+						   sendcount * details::size_of<send_element_type>,
+						   MPI_BYTE,
+						   empi_byte_cast(recv_ptr),
+						   std::ranges::data(recvcounts),
+						   std::ranges::data(displacements),
+						   MPI_BYTE,
 						   root,
 						   communicator);
+	
+	  }
+	  
+
+	  
+	  template<typename K, details::range_has_type<int> J>
+	  int gatherv(const int root, K&& sendbuf,int sendcount, K&& recvbuf,J&& recvcounts, 
+	  																	 J&& displacements)
+	  {
+		//Check sizes...
+		return _gatherv_impl(root, 
+							 std::forward<K>(sendbuf),
+							 sendcount, 
+							 std::forward<K>(recvbuf),
+							std::forward<J>(recvcounts),
+							std::forward<J>(displacements));
+	  }
+
+	  template<typename K>
+	  int gatherv(const int root, K&& sendbuf,int sendcount, K&& recvbuf, auto&& recvcounts, auto&& displacements)
+	  {
+		//Check sizes...
+		//VERY UGLY WAY OF DOING IT. PLEASE REMOVE THIS...
+		int num_proc;
+		MPI_Comm_size(communicator, &num_proc);
+
+		return _gatherv_impl(root, 
+							 std::forward<K>(sendbuf),
+							 sendcount, 
+							 std::forward<K>(recvbuf),
+							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)),num_proc),
+							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(displacements)),num_proc));
 	  }
 	  // ------------------------- END ALLREDUCE --------------------------
 

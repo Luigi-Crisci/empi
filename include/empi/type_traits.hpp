@@ -190,7 +190,9 @@ struct get_true_type<T>{
 template<typename T>
 using get_true_type_t = get_true_type<remove_all_t<T>>::type;
 
-
+//////////////// Typed range //////////////
+template<typename Range,typename type>
+concept range_has_type = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, type>; 
 
 } // namespace detail
 } // namespace empi
