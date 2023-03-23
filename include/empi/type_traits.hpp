@@ -128,6 +128,14 @@ struct is_same_template<Template<Args...>,Template<Brgs...>> : std::true_type {}
 template<typename T, typename K>
 static constexpr bool is_same_template_v = is_same_template<T, K>::value;
 
+// Simple and incomplete concept to check if a type has static extent
+template<typename C>
+concept has_static_extent = requires (C c){
+  (c.extent != std::dynamic_extent) ||
+  (std::is_array_v<C>) || 
+  (std::extent_v<C> > 0); 
+};
+
 ///////////////// IS MDSPAN ////////////////
 
 template<typename T>
@@ -192,7 +200,7 @@ using get_true_type_t = get_true_type<remove_all_t<T>>::type;
 
 //////////////// Typed range //////////////
 template<typename Range,typename type>
-concept range_has_type = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, type>; 
+concept typed_range = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, type>; 
 
 } // namespace detail
 } // namespace empi

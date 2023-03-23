@@ -244,40 +244,25 @@ namespace empi{
 	  // ------------------------- END BCAST --------------------------
 	  // ------------------------- IBCAST --------------------------
 	  template<typename K>
-	  int _ibcast_impl(K&& data, const int root, const size_t size){
+	  std::shared_ptr<async_event>& _ibcast_impl(K&& data, const int root, const size_t size){
 		using element_type = details::get_true_type_t<K>;
 		auto&& event = _request_pool->get_req();
 		element_type* ptr = details::get_underlying_pointer(std::forward<K>(data));
-		return EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE,root,communicator, event->get_request());		
+		EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE,root,communicator, event->get_request());		
+	  	return event;
 	  }
 
       template<typename K>
 	  requires (SIZE == NOSIZE)
-	  int ibcast(K&& data, const int root, const size_t size){
+	  auto& Ibcast(K&& data, const int root, const size_t size){
 		// Check size...
 		return _ibcast_impl(std::forward<K>(data), root, size);
 	  }
 
 	  template<typename K>
 	  requires (SIZE > 0)
-	  int ibcast(K&& data, const int root){
+	  auto&Ibcast(K&& data, const int root){
 	  	return _ibcast_impl(std::forward<K>(data), root, SIZE);
-	  }
-	  
-	  template<typename K>
-	  requires (SIZE > 0)
-	  std::shared_ptr<async_event>& Ibcast(K&& data, const int root){
-		auto&& event = _request_pool->get_req();
-		event->res = EMPI_IBCAST(details::get_underlying_pointer(data), SIZE, details::mpi_type<T>::get_type(),root,communicator, event->get_request());
-		return event;
-	  }
-
-	  template<typename K>
-	  requires (SIZE == NOSIZE)
-	  std::shared_ptr<async_event>& Ibcast(K&& data, const int root, const size_t size){
-		auto&& event = _request_pool->get_req();
-		event->res = EMPI_IBCAST(details::get_underlying_pointer(data), size, details::mpi_type<T>::get_type(),root,communicator, event->get_request());
-		return event;
 	  }
 
 	  // ------------------------- END IBCAST --------------------------
@@ -314,8 +299,8 @@ namespace empi{
 	  					K&& sendbuf,
 						int sendcount,
 						K&& recvbuf, 
-	  				    details::range_has_type<int> auto&& recvcounts, 
-						details::range_has_type<int> auto&& displacements)
+	  				    details::typed_range<int> auto&& recvcounts, 
+						details::typed_range<int> auto&& displacements)
 	  {
 		using send_element_type = details::get_true_type_t<K>;
 		using recv_element_type = details::get_true_type_t<K>;
@@ -341,7 +326,7 @@ namespace empi{
 	  
 
 	  
-	  template<typename K, details::range_has_type<int> J>
+	  template<typename K, details::typed_range<int> J>
 	  int gatherv(const int root, K&& sendbuf,int sendcount, K&& recvbuf,J&& recvcounts, 
 	  																	 J&& displacements)
 	  {
@@ -367,7 +352,7 @@ namespace empi{
 							 sendcount, 
 							 std::forward<K>(recvbuf),
 							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)),num_proc),
-							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(displacements)),num_proc));
+							std::span(details::get_underlying_pointer(std::forward<decltype(displacements)>(displacements)),num_proc));
 	  }
 	  // ------------------------- END ALLREDUCE --------------------------
 
