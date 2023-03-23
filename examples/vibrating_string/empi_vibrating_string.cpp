@@ -70,10 +70,10 @@ void f(std::unique_ptr<empi::MessageGroup>& comm_world){
     for (double t = 2 * dt; t <= t_end; t += dt) {
       // make one time step to get elongation
       string(u_l, u_old_l, u_new_l, eps);
-      cgh.Isend(&u_new_l[N_l[C_rank] - 2], C_rank + 1 < C_size ? C_rank + 1 : MPI_PROC_NULL, empi::Tag{right_copy});
-      cgh.Isend(&u_new_l[1], C_rank - 1 >= 0 ? C_rank - 1 : MPI_PROC_NULL, empi::Tag{left_copy});
-      cgh.Irecv(&u_new_l[0], C_rank - 1 >= 0 ? C_rank - 1 : MPI_PROC_NULL, empi::Tag{right_copy});
-      cgh.Irecv(&u_new_l[N_l[C_rank] - 1],C_rank + 1 < C_size ? C_rank + 1 : MPI_PROC_NULL, empi::Tag{left_copy});
+      cgh.Isend(u_new_l[N_l[C_rank] - 2], C_rank + 1 < C_size ? C_rank + 1 : MPI_PROC_NULL, empi::Tag{right_copy});
+      cgh.Isend(u_new_l[1], C_rank - 1 >= 0 ? C_rank - 1 : MPI_PROC_NULL, empi::Tag{left_copy});
+      cgh.Irecv(u_new_l[0], C_rank - 1 >= 0 ? C_rank - 1 : MPI_PROC_NULL, empi::Tag{right_copy});
+      cgh.Irecv(u_new_l[N_l[C_rank] - 1],C_rank + 1 < C_size ? C_rank + 1 : MPI_PROC_NULL, empi::Tag{left_copy});
       cgh.waitall();
       std::swap(u_l, u_old_l);
       std::swap(u_new_l, u_l);
