@@ -11,6 +11,7 @@
 	#define EMPI_BCAST MPI_UBcast
 	#define EMPI_IBCAST MPI_IUbcast
 	#define EMPI_GATHERV MPI_Gatherv //Not yet implemented
+	#define EMPI_ALLGATHER MPI_Allgather //Not yet implemented
 	#define EMPI_CHECKCOMM(comm) MPI_Checkcomm(comm)
 	#define EMPI_CHECKTYPE(type) MPI_Checktype(type)
 #else
@@ -22,6 +23,7 @@
 	#define EMPI_BCAST MPI_Bcast
 	#define EMPI_IBCAST MPI_Ibcast
 	#define EMPI_GATHERV MPI_Gatherv
+	#define EMPI_ALLGATHER MPI_Allgather
 	#define EMPI_CHECKCOMM(comm) //Disable function
 	#define EMPI_CHECKTYPE(type) //Disable function
 #endif

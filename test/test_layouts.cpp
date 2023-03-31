@@ -66,7 +66,7 @@ TEST_CASE("Create struct layout", "[mdspan|struct_layout]") {
 
 	for(int i = 0; i < 5; i+=1){
 		// REQUIRE(view[i] == i*2+1);
-		std::cout << view[i] << "\n";
+		// std::cout << view[i] << "\n";
 	}
 }
 
@@ -82,7 +82,95 @@ TEST_CASE("Compact column layout", "[mdspan|layouts|compact]"){
 	for (int i = 0; i < view.size(); i++) {
 		REQUIRE(ptr.get()[i] == view(i));
 	}
+}
 
+TEST_CASE("Create tiled block layout", "[mdspan|layouts|compact]"){
+	std::vector<int> v(10);
+	std::iota(v.begin(),v.end(),0);
 
+	stdex::dextents<size_t,1> ext(10 / 5 * 3);
+	std::vector<size_t> blocks({3});
+	std::vector<size_t> strides({5});
+	auto view = empi::layouts::block_layout::build(v, ext, 
+														blocks,strides,
+													    std::experimental::default_accessor<int>());
+	for (int i = 0; i < 6; i++) {
+		REQUIRE(view[i] == i + (2 * (i/3)));
+	}
+}
+
+TEST_CASE("Create blocked block layout", "[mdspan|layouts|compact]"){
+	std::vector<int> v(20);
+	std::iota(v.begin(),v.end(),0);
+
+	stdex::extents<size_t,20> ext;
+	std::vector<size_t> blocks({2,2});
+	std::vector<size_t> strides({3,5});
+	auto view = empi::layouts::block_layout::build(v, ext, 
+														blocks,strides,
+													    std::experimental::default_accessor<int>());
+	REQUIRE(view[0] == 0);
+	REQUIRE(view[1] == 1);
+	REQUIRE(view[2] == 3);
+	REQUIRE(view[3] == 4);
+	REQUIRE(view[4] == 8);
+	REQUIRE(view[5] == 9);
+	REQUIRE(view[6] == 11);
+	REQUIRE(view[7] == 12);
+	REQUIRE(view[8] == 16);
+	REQUIRE(view[9] == 17);
+}
+
+TEST_CASE("Create bucket block layout", "[mdspan|layouts|compact]"){
+	std::vector<int> v(20);
+	std::iota(v.begin(),v.end(),0);
+
+	stdex::extents<size_t,20> ext;
+	std::vector<size_t> blocks({4,3});
+	std::vector<size_t> strides({5,5});
+	auto view = empi::layouts::block_layout::build(v, ext, 
+														blocks,strides,
+													    std::experimental::default_accessor<int>());
+	REQUIRE(view[0] == 0);
+	REQUIRE(view[1] == 1);
+	REQUIRE(view[2] == 2);
+	REQUIRE(view[3] == 3);
+	REQUIRE(view[4] == 5);
+	REQUIRE(view[5] == 6);
+	REQUIRE(view[6] == 7);
+	REQUIRE(view[7] == 10);
+	REQUIRE(view[8] == 11);
+	REQUIRE(view[9] == 12);
+	REQUIRE(view[10] == 13);
+	REQUIRE(view[11] == 15);
+	REQUIRE(view[12] == 16);
+	REQUIRE(view[13] == 17);
+}
+
+TEST_CASE("Create alternating block layout", "[mdspan|layouts|compact]"){
+	std::vector<int> v(20);
+	std::iota(v.begin(),v.end(),0);
+
+	stdex::extents<size_t,20> ext;
+	std::vector<size_t> blocks({4,3});
+	std::vector<size_t> strides({5,6});
+	auto view = empi::layouts::block_layout::build(v, ext, 
+														blocks,strides,
+													    std::experimental::default_accessor<int>());
+
+	REQUIRE(view[0] == 0);
+	REQUIRE(view[1] == 1);
+	REQUIRE(view[2] == 2);
+	REQUIRE(view[3] == 3);
+	REQUIRE(view[4] == 5);
+	REQUIRE(view[5] == 6);
+	REQUIRE(view[6] == 7);
+	REQUIRE(view[7] == 11);
+	REQUIRE(view[8] == 12);
+	REQUIRE(view[9] == 13);
+	REQUIRE(view[10] == 14);
+	REQUIRE(view[11] == 16);
+	REQUIRE(view[12] == 17);
+	REQUIRE(view[13] == 18);
 }
 

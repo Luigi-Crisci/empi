@@ -5,11 +5,13 @@
 #ifndef EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 #define EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 
+#include <memory>
 #include <type_traits>
 #include <memory.h>
 
 #include <experimental/mdspan>
 #include <empi/type_traits.hpp>
+#include <empi/utils.hpp>
 
 
 namespace empi::details {
@@ -46,35 +48,54 @@ struct mpi_type {
   }
 };
 
-#define empi_byte_cast(ptr) (static_cast<std::byte*>(static_cast<void*>(ptr)))
+
+#define empi_byte_cast(ptr) (static_cast<std::byte*>(static_cast<void*>((ptr).get())))
 
 template<typename T>
 requires has_data<T>
-static inline auto get_underlying_pointer(T&& buf){
-  return buf.data();
+static inline constexpr auto get_underlying_pointer(T&& buf){
+  using element_type = typename std::remove_reference_t<T>::value_type;
+  return std::unique_ptr<element_type, 
+                         empi::details::conditional_deleter<element_type>>(buf.data());
 }
 
 template<typename T>
-static inline auto get_underlying_pointer(T* buf){
-  return buf;
+static inline constexpr auto get_underlying_pointer(T* buf){
+  return std::unique_ptr<T, 
+                         empi::details::conditional_deleter<T>>(buf);
 }
 
 template<typename T>
-static inline auto get_underlying_pointer(const T* buf){
-  return buf;
+static inline constexpr auto get_underlying_pointer(const T* buf){
+  return std::unique_ptr<const T, 
+                         empi::details::conditional_deleter<const T>>(buf);
 }
 
 template<typename T>
 requires std::is_arithmetic_v<T>
-static inline auto get_underlying_pointer(T& buf){
-  return &buf;
+static inline constexpr auto get_underlying_pointer(T& buf){
+  return std::unique_ptr<T, 
+                         empi::details::conditional_deleter<T>>(&buf);
 }
 
 template<typename T>
 requires std::is_arithmetic_v<T>
-static inline auto get_underlying_pointer(const T& buf){
-  return &buf;
+static inline constexpr auto get_underlying_pointer(const T& buf){
+  return std::unique_ptr<const T, 
+                         empi::details::conditional_deleter<T>>(&buf);
 }
+
+template<typename T>
+static inline constexpr auto get_underlying_pointer(std::unique_ptr<T>& buf){
+  return std::move(buf);
+}
+
+template<typename T>
+requires (!is_mdspan<T>)
+static inline constexpr auto get_underlying_pointer(T&& buf, bool flag){
+  return get_underlying_pointer(std::forward<T>(buf));
+}
+
 
 }
 

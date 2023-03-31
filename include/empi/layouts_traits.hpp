@@ -12,11 +12,13 @@ concept is_contiguous_layout = std::is_same_v<Layout, contiguous_layout::contigu
 							   std::is_same_v<Layout, stdex::layout_left>;
 
 template<typename AccessPolicy>
-concept is_trivial_accessor = std::is_same_v<details::remove_all_t<typename AccessPolicy::data_handle_type>, 
+concept has_trivial_accessor = std::is_same_v<details::remove_all_t<typename AccessPolicy::data_handle_type>, 
 			       							 details::remove_all_t<typename AccessPolicy::element_type>>;
+template<typename Layout>
+concept is_block_layout = std::is_same_v<Layout, layouts::block_layout>;
 
 template<typename Layout, typename AccessPolicy>
-concept is_trivial_view = is_contiguous_layout<Layout> && is_trivial_accessor<AccessPolicy>;
+concept is_trivial_view = is_contiguous_layout<Layout> && has_trivial_accessor<AccessPolicy>;
 
 
 }

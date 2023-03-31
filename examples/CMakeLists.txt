@@ -16,3 +16,5 @@ add_subdirectory(bdring)
 add_subdirectory(ibcast)
 add_subdirectory(ping_pong)
 add_subdirectory(vibrating_string)
+
+add_subdirectory(datatypes)

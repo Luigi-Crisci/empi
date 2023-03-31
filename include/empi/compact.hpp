@@ -9,15 +9,6 @@
 #include <empi/utils.hpp>
 
 
-namespace empi::details {
-// Basic pointer wrapper with a get() function to mock unique_ptr
-template<typename T>
-struct pointer_wrapper{
-	constexpr T* get() noexcept {return _ptr;}	
-	T* _ptr;
-};
-}
-
 namespace empi::layouts{
 
 /**
@@ -28,7 +19,8 @@ auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& vi
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
 	auto ptr = new element_type[view.size()];
 	empi::details::apply(view, [p = ptr](Accessor::reference e) mutable {*p=e; p++;});
-	std::unique_ptr<element_type> uptr(std::move(ptr)); 
+	details::conditional_deleter<element_type> del(true);
+	std::unique_ptr<element_type, decltype(del)> uptr(std::move(ptr), std::move(del)); 
 	return uptr;
 }
 
@@ -39,9 +31,13 @@ template<typename T, template<typename , size_t...> typename Extents, typename L
 requires (is_trivial_view<Layout, Accessor>)
 auto constexpr compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-	details::pointer_wrapper uptr(&view.data_handle()); 
+	
+	std::unique_ptr<element_type, details::conditional_deleter<element_type>> uptr(view.data_handle()); 
 	return uptr;
 }
+
+
+
 
 /**
 * TODO: Here we can have some fun
@@ -55,10 +51,19 @@ auto constexpr compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Acc
 }
 
 namespace empi::details{
-template<is_mdspan T>
-static constexpr inline auto get_underlying_pointer(const T& buf){
-  auto&& ptr = empi::layouts::compact(buf);
-  return ptr.get();
+template<typename T, typename Extents, typename Layout, typename Accessor>
+static constexpr inline auto get_underlying_pointer(const stdex::mdspan<T, Extents,Layout,Accessor>& buf, 
+													bool compact = false){
+  if (compact){
+	// TODO: temporary workaround before refactoring compact functions into layout's classes
+	if constexpr (std::is_same_v<Layout, layouts::block_layout>)
+		return empi::layouts::block_layout::compact(buf);
+	else
+		return empi::layouts::compact(buf);
+  } else {
+	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+	return std::unique_ptr<element_type,details::conditional_deleter<element_type>>(buf.data_handle());
+  }
 }
 
 }

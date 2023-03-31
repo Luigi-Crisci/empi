@@ -11,6 +11,8 @@
 #include <functional>
 #include "message_group.hpp"
 
+
+
 namespace empi{
 
     class Context{
@@ -37,8 +39,12 @@ namespace empi{
          int thread_support;
 	};
 
-
-
+    #ifdef TEST
+    static Context& get_context(){
+        static Context ctx(nullptr, nullptr);
+        return ctx;
+    }
+    #endif
 
 };
 

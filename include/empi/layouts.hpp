@@ -273,23 +273,73 @@ struct tiled_layout {
 //////////// Layouts for benchmarking purposes ///////////////
 struct block_layout {
 
-  struct block_layout_impl {
+  template <template <typename, size_t...> typename Extents, typename T,
+            size_t... idx>
+  [[nodiscard]] static constexpr auto
+  build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents, 
+        std::ranges::forward_range auto &&blocks,
+        std::ranges::forward_range auto &&strides) {
+    // TODO: Check sizes against view
+    // TODO: Tiled layout should work on every dimension
+    using view_data_type = std::ranges::range_value_t<decltype(view)>;
+    return build(view, extents, blocks, strides,std::experimental::default_accessor<view_data_type>());
+  }
+
+
+  // Hardwritten for 1D layouts, will change later...
+  template <template <typename, size_t...> typename Extents, typename T,
+            size_t... idx, typename Accessor>
+  [[nodiscard]] static constexpr auto
+  build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents, 
+        std::ranges::forward_range auto &&blocks,
+        std::ranges::forward_range auto &&strides,
+        const Accessor &acc = stdex::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
+    // TODO: Check sizes against view
+    // TODO: Tiled layout should work on every dimension
+    using extent_type = std::remove_cvref_t<Extents<T, idx...>>;
+    static_assert(extent_type::rank() == 1);
+
+    mapping<extent_type> block_mapping(extents,blocks, strides);
+    using view_data_type = std::ranges::range_value_t<decltype(view)>;
+    return stdex::mdspan<T, extent_type, block_layout, Accessor>(
+        std::ranges::data(view), block_mapping, acc);
+  }
+
+    /**
+	  If blocked layout, segmented copy
+  */
+    template<typename T, template<typename , size_t...> typename Extents, typename Accessor, typename idx_type, size_t ...idx>
+    static constexpr auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,block_layout,Accessor>& view){
+      using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+      auto ptr = new element_type[view.size()];
+      auto base = ptr;
+      using extent_type = std::remove_cvref_t<decltype(view)>::extents_type;
+      const auto& mapping = static_cast<block_layout::mapping<extent_type>>(view.mapping());
+      int num_blocks = mapping.blocks.size();
+      for (int pos = 0, block = 0; pos < view.extent(0); pos += mapping.blocks[block], block = (block+1)%num_blocks) {
+        memcpy(ptr, &view[pos] , (mapping.blocks[block]) * sizeof(element_type));
+        ptr += mapping.blocks[block];
+      }
+      details::conditional_deleter<element_type> del(true);
+      return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
+    }
 
     template <typename Extents> struct mapping {
+      friend class block_layout;
 
       static_assert(Extents::rank() == 1,
                     "Hardwritten for 1D layouts, for now");
 
       using extents_type = Extents;
-      using rank_type = typename Extents::rank_type;
-      using size_type = typename Extents::size_type;
-      using layout_type = block_layout::block_layout_impl;
+      using rank_type = typename extents_type::rank_type;
+      using size_type = typename extents_type::size_type;
+      using layout_type = block_layout;
 
       mapping() noexcept = default;
       mapping(const mapping &) noexcept = default;
       mapping &operator=(const mapping &) noexcept = default;
 
-      template <details::typed_range<size_t> K>
+      template <std::ranges::forward_range K>
       constexpr mapping(const Extents& ext, K &&b, K &&s)
           : _extents(ext), blocks(b), strides(s), sum_blocks(0), sum_diffs(0)
       {
@@ -314,7 +364,8 @@ struct block_layout {
       constexpr const extents_type &extents() const { return _extents; }
 
       constexpr size_type required_span_size() const noexcept {
-        // return n_row_tiles() * n_column_tiles() * tile_size();
+        // stdex::extents<int, 1> x;
+        return  _extents.extent(0);
       }
 
       template<class index>
@@ -325,7 +376,7 @@ struct block_layout {
       template<class index>
       constexpr inline size_t offset_in_block(index idx) const noexcept {
         const auto pos = idx % sum_blocks;
-        if(pos <= blocks[0])
+        if(pos < blocks[0])
             return 0;
         
         const auto new_pos = std::distance(partial_blocks.begin(),
@@ -361,16 +412,17 @@ struct block_layout {
 
     private:
       Extents _extents;
-      std::vector<size_t> blocks;
+      std::span<size_t> blocks;
+      std::span<size_t> strides;
       std::vector<size_t> partial_blocks;
-      std::vector<size_t> strides;
       std::vector<size_t> diffs;
       std::vector<size_t> offsets;
       size_t sum_diffs{};
       size_t sum_blocks{};
     };
   };
-};
+
+
 
 } // namespace empi::layouts
 

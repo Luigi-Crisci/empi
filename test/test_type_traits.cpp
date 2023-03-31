@@ -34,7 +34,7 @@ TEST_CASE("is_contiguous_layout", "[type_traits][layouts]") {
 	REQUIRE_FALSE(empi::layouts::is_contiguous_layout<int>);
 }
 
-TEST_CASE("is_trivial_accessor", "[type_traits][layouts]") {
+TEST_CASE("has_trivial_accessor", "[type_traits][layouts]") {
 	using namespace std::experimental;
 	struct S{
 		int x;
@@ -42,12 +42,12 @@ TEST_CASE("is_trivial_accessor", "[type_traits][layouts]") {
 		float z;
 	};
 
-	REQUIRE(empi::layouts::is_trivial_accessor<stdex::default_accessor<int>>);	
-	REQUIRE(empi::layouts::is_trivial_accessor<empi::layouts::struct_layout::struct_accessor<int>>);	
-	REQUIRE(empi::layouts::is_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S>>);	
+	REQUIRE(empi::layouts::has_trivial_accessor<stdex::default_accessor<int>>);	
+	REQUIRE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<int>>);	
+	REQUIRE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S>>);	
 	
-	REQUIRE_FALSE(empi::layouts::is_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S,
+	REQUIRE_FALSE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S,
 																					decltype([](S&s)->int&{return s.x;})>>);
-	REQUIRE_FALSE(empi::layouts::is_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S,
+	REQUIRE_FALSE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S,
 																					decltype([](S&s)->std::tuple<int,float> {return {s.x,s.z};})>>);
 }

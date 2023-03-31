@@ -26,7 +26,14 @@ namespace empi{
 	  	using T = details::remove_all_t<T1>;
 
 		public:
-		  explicit MessageGroupHandler(MPI_Comm comm, std::shared_ptr<request_pool> _request_pool) : communicator(comm), _request_pool(std::move(_request_pool)) {
+		  explicit MessageGroupHandler(MPI_Comm comm, 
+		  std::shared_ptr<request_pool> _request_pool,
+		  int rank,
+		  int size) : 
+		  communicator(comm), 
+		  _request_pool(std::move(_request_pool)),
+		  rank(rank),
+		  size(size) {
 			// MPI_Datatype type = details::mpi_type<T>::get_type();
 			max_tag = std::numeric_limits<int>::max(); //TODO: Remove this
 			// MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -59,7 +66,7 @@ namespace empi{
 				}
 				else{
 					auto&& ptr = layouts::compact(std::forward<K>(data));
-					return EMPI_SEND(empi_byte_cast(ptr.get()), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
+					return EMPI_SEND(empi_byte_cast(ptr), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
 				}	
 		  }
 
@@ -145,7 +152,7 @@ namespace empi{
 			}
 			else{
 				auto&& ptr = layouts::compact(std::forward<K>(data));
-				EMPI_ISEND(empi_byte_cast(ptr.get()), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
+				EMPI_ISEND(empi_byte_cast(ptr), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
 			}
 			return event;
 		  }
@@ -224,7 +231,7 @@ namespace empi{
    	  template<typename K>
 	  int _bcast_impl(K&& data, const int root, const size_t size){
 		using element_type = details::get_true_type_t<K>;
-		element_type* ptr = details::get_underlying_pointer(std::forward<K>(data));
+		auto&& ptr = details::get_underlying_pointer(std::forward<K>(data), root == rank);
 		return EMPI_BCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE,root,communicator);		
 	  }
 
@@ -247,7 +254,7 @@ namespace empi{
 	  std::shared_ptr<async_event>& _ibcast_impl(K&& data, const int root, const size_t size){
 		using element_type = details::get_true_type_t<K>;
 		auto&& event = _request_pool->get_req();
-		element_type* ptr = details::get_underlying_pointer(std::forward<K>(data));
+		auto&& ptr = details::get_underlying_pointer(std::forward<K>(data), root == rank);
 		EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE,root,communicator, event->get_request());		
 	  	return event;
 	  }
@@ -261,7 +268,7 @@ namespace empi{
 
 	  template<typename K>
 	  requires (SIZE > 0)
-	  auto&Ibcast(K&& data, const int root){
+	  auto& Ibcast(K&& data, const int root){
 	  	return _ibcast_impl(std::forward<K>(data), root, SIZE);
 	  }
 
@@ -304,8 +311,8 @@ namespace empi{
 	  {
 		using send_element_type = details::get_true_type_t<K>;
 		using recv_element_type = details::get_true_type_t<K>;
-		send_element_type* send_ptr = details::get_underlying_pointer(std::forward<K>(sendbuf));
-		recv_element_type* recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
+		auto&& send_ptr = details::get_underlying_pointer(std::forward<K>(sendbuf), root == rank);
+		auto&& recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
 		
 		// Each node receives recvcount * size bytes
 		constexpr auto byte_conv = [](auto& e){ const_cast<int&>(e) = e * details::size_of<send_element_type>;};
@@ -343,24 +350,59 @@ namespace empi{
 	  int gatherv(const int root, K&& sendbuf,int sendcount, K&& recvbuf, auto&& recvcounts, auto&& displacements)
 	  {
 		//Check sizes...
-		//VERY UGLY WAY OF DOING IT. PLEASE REMOVE THIS...
-		int num_proc;
-		MPI_Comm_size(communicator, &num_proc);
-
 		return _gatherv_impl(root, 
 							 std::forward<K>(sendbuf),
 							 sendcount, 
 							 std::forward<K>(recvbuf),
-							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)),num_proc),
-							std::span(details::get_underlying_pointer(std::forward<decltype(displacements)>(displacements)),num_proc));
+							std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)).get(),size),
+							std::span(details::get_underlying_pointer(std::forward<decltype(displacements)>(displacements)).get(),size));
 	  }
-	  // ------------------------- END ALLREDUCE --------------------------
+	  // ------------------------- END GATHERV --------------------------
+
+	  template<typename T, typename K>
+	  int _allgather_impl(T&& sendbuf,
+						  int sendcount,
+						  K&& recvbuf, 
+	  				      int recvcounts) 
+	  {
+		using send_element_type = details::get_true_type_t<K>;
+		using recv_element_type = details::get_true_type_t<K>;
+		auto send_ptr = details::get_underlying_pointer(std::forward<T>(sendbuf), true);
+		auto recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
+		
+		// for (int i = 0; i < sendcount; i++) {
+		// 	std::cout << i << ": " << send_ptr.get()[i] << "\n";
+		// }
+
+		// for (int i = 0; i < recvcounts; i++) {
+		// 	std::cout << i << ": " << recv_ptr.get()[i] << "\n";
+		// }
+
+		return EMPI_ALLGATHER(empi_byte_cast(send_ptr), 
+						   sendcount * details::size_of<send_element_type>,
+						   MPI_BYTE,
+						   empi_byte_cast(recv_ptr),
+						   recvcounts * details::size_of<recv_element_type>,
+						   MPI_BYTE,
+						   communicator);
+	  }
+
+	  template<typename T, typename K>
+	  int Allgather(T&& sendbuf,int sendcount, K&& recvbuf, int recvcounts)
+	  {
+		return _allgather_impl(std::forward<T>(sendbuf),
+							   sendcount, 
+							   std::forward<K>(recvbuf),
+							   recvcounts);
+	  }
 
 
 		private:
 			MPI_Comm communicator;
 			std::shared_ptr<request_pool> _request_pool;
 			int max_tag;
+			const int rank;
+			const int size;
 	};
 
 }

@@ -49,55 +49,55 @@ namespace empi {
 
 	template<Tag tag, size_t size, typename T, typename C = typename T::value_type>
 	int send(T&& data, int dest){
-	  MessageGroupHandler<C,tag,size> h(comm, _request_pool);
+	  MessageGroupHandler<C,tag,size> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest);
 	}
 
 	template<Tag tag, size_t size, typename T>
 	int send(const T* data, int dest){
-	  MessageGroupHandler<T,tag,size> h(comm, _request_pool);
+	  MessageGroupHandler<T,tag,size> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest);
 	}
 
 	template<size_t size, typename T>
 	int send(T&& data, int dest, Tag tag){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template send(data,dest,tag);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template send(data,dest,tag);
 	  }
 	}
 
 	template<size_t size, typename T>
 	int send(const T* data, int dest, Tag tag){
-	  MessageGroupHandler<T,NOTAG,size> h(comm, _request_pool);
+	  MessageGroupHandler<T,NOTAG,size> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest,tag);
 	}
 
 	template<Tag tag, typename T, typename C = typename T::value_type>
 	int send(T&& data, int dest, size_t size){
-	  MessageGroupHandler<C,tag,NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<C,tag,NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest,size);
 	}
 
 	template<Tag tag, typename T>
 	int send(const T* data, int dest, size_t size){
-	  MessageGroupHandler<T,tag,NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<T,tag,NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest,size);
 	}
 
 	template<typename T, typename C = typename T::value_type>
 	int send(T&& data, int dest, size_t size, Tag tag){
-	  MessageGroupHandler<C,NOTAG,NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<C,NOTAG,NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest,size,tag);
 	}
 
 	template<typename T>
 	int send(const T* data, int dest, size_t size, Tag tag){
-	  MessageGroupHandler<T,NOTAG,NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<T,NOTAG,NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template send(data,dest,size,tag);
 	}
 
@@ -105,13 +105,13 @@ namespace empi {
 
 	template<Tag tag, size_t size, typename T, typename C = typename T::value_type>
 	int recv(T&& data, int src, MPI_Status& status){
-	  MessageGroupHandler<C,tag,size> h(comm, _request_pool);
+	  MessageGroupHandler<C,tag,size> h(comm, _request_pool, _rank, _size);
 	  return h.recv(data, src, status);
 	}
 
 	template<Tag tag, size_t size, typename T>
 	int recv(T* data, int src, MPI_Status& status){
-	  MessageGroupHandler<T,tag,size> h(comm, _request_pool);
+	  MessageGroupHandler<T,tag,size> h(comm, _request_pool, _rank, _size);
 	  return h.template recv(data, src, status);
 	}
 
@@ -120,11 +120,11 @@ namespace empi {
 	template<Tag tag, size_t size, typename T>
 	std::shared_ptr<async_event> Isend(T&& data, int dest){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, tag, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, tag, size> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest);
 	  }
 	  else{
-		MessageGroupHandler<T, tag, size> h(comm, _request_pool);
+		MessageGroupHandler<T, tag, size> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest);
 	  }
 	}
@@ -132,11 +132,11 @@ namespace empi {
 	template<Tag tag, typename T>
 	std::shared_ptr<async_event> Isend(T&& data, int dest, int size){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, tag, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, tag, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest,size);
 	  }
 	  else{
-		MessageGroupHandler<T, tag, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, tag, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest, size);
 	  }
 	}
@@ -144,11 +144,11 @@ namespace empi {
 	template<int size, typename T>
 	std::shared_ptr<async_event> Isend(T&& data, int dest, Tag tag){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest,tag);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest,tag);
 	  }
 	}
@@ -156,11 +156,11 @@ namespace empi {
 	template<typename T>
 	std::shared_ptr<async_event> Isend(T&& data, int dest, int size, Tag tag){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest,size, tag);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Isend(data,dest,size,tag);
 	  }
 	}
@@ -171,11 +171,11 @@ namespace empi {
 	template<Tag tag, size_t size, typename T>
 	std::shared_ptr<async_event> Irecv(T&& data, int src){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, tag, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, tag, size> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src);
 	  }
 	  else{
-		MessageGroupHandler<T, tag, size> h(comm, _request_pool);
+		MessageGroupHandler<T, tag, size> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src);
 	  }
 	}
@@ -183,11 +183,11 @@ namespace empi {
 	template<size_t size, typename T>
 	std::shared_ptr<async_event> Irecv(T&& data, int src, Tag tag){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src, tag);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src, tag);
 	  }
 	}
@@ -195,11 +195,11 @@ namespace empi {
 	template<Tag tag, typename T>
 	std::shared_ptr<async_event> Irecv(T&& data, int src, int size){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, tag, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, tag, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src,size);
 	  }
 	  else{
-		MessageGroupHandler<T, tag, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, tag, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src,size);
 	  }
 	}
@@ -207,11 +207,11 @@ namespace empi {
 	template<typename T>
 	std::shared_ptr<async_event> Irecv(T&& data, int src, int size, Tag tag){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src,size,tag);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Irecv(data,src,size,tag);
 	  }
 	}
@@ -222,11 +222,11 @@ namespace empi {
 	template<size_t size, typename T>
 	int Bcast(T&& data, int root){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Bcast(std::forward<T>(data), root);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Bcast(std::forward<T>(data), root);
 	  }
 	}
@@ -234,11 +234,11 @@ namespace empi {
 	template<typename T>
 	int Bcast(T&& data, int root, int size){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Bcast(std::forward<T>(data), root, size);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Bcast(std::forward<T>(data), root, size);
 	  }
 	}
@@ -249,11 +249,11 @@ namespace empi {
 	template<size_t size, typename T>
 	std::shared_ptr<async_event> Ibcast(T&& data, int root){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Ibcast(data, root);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Ibcast(data, root);
 	  }
 	}
@@ -261,11 +261,11 @@ namespace empi {
 	template<typename T>
 	std::shared_ptr<async_event> Ibcast(T&& data, int root, int size){
 	  if constexpr (details::has_data<T>) {
-		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<typename T::value_type, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Ibcast(data, root, size);
 	  }
 	  else{
-		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool);
+		MessageGroupHandler<T, NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 		return h.template Ibcast(data, root, size);
 	  }
 	}
@@ -275,20 +275,20 @@ namespace empi {
 
 	template<size_t size, typename T>
 	int Allreduce(T&& sendbuf, T&& recvbuf, MPI_Op op){
-		MessageGroupHandler<typename details::get_true_type<T>::type, NOTAG, size> h(comm, _request_pool);
+		MessageGroupHandler<typename details::get_true_type<T>::type, NOTAG, size> h(comm, _request_pool, _rank, _size);
 		return h.template Allreduce<T>(std::forward<T>(sendbuf),std::forward<T>(recvbuf),op);
 	}
 
 	template<typename T>
 	int Allreduce(T&& sendbuf, T&& recvbuf, int size, MPI_Op op){
-	  MessageGroupHandler<typename details::get_true_type<T>::type , NOTAG, NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<typename details::get_true_type<T>::type , NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template Allreduce(std::forward<T>(sendbuf),std::forward<T>(recvbuf),size,op);
 	}
 	// ------------------ END ALLREDUCE -----------------------------
 	// ------------------ GATHERV -----------------------------
 	template<typename T, typename K>
 	int gatherv(int root, T&& sendbuf,int sendcount, T&& recvbuf, K&& recvcounts, K&& displacements){
-	  MessageGroupHandler<typename details::get_true_type<T>::type , NOTAG, NOSIZE> h(comm, _request_pool);
+	  MessageGroupHandler<typename details::get_true_type<T>::type , NOTAG, NOSIZE> h(comm, _request_pool, _rank, _size);
 	  return h.template gatherv(root, sendbuf, sendcount, recvbuf, std::forward<K>(recvcounts), std::forward<K>(displacements));
 	}
 
@@ -297,7 +297,7 @@ namespace empi {
 	void run(T cgf){
 	  typedef details::function_traits<decltype(cgf)> traits;
 	  using Handler = std::remove_reference_t<typename traits::template arg<0>::type>;
-	  Handler cgh(comm, _request_pool);
+	  Handler cgh(comm, _request_pool, _rank, _size);
 	  cgf(cgh);
 	}
 
@@ -306,7 +306,7 @@ namespace empi {
 	  typedef details::function_traits<decltype(cgf)> traits;
 	  using Handler = std::remove_reference_t<typename traits::template arg<0>::type>;
 
-	  Handler cgh(comm, _request_pool);
+	  Handler cgh(comm, _request_pool, _rank, _size);
 	  cgf(cgh);
 	  wait_all();
 	}

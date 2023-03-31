@@ -7,8 +7,59 @@
 
 #include <empi/type_traits.hpp>
 #include <empi/defines.hpp>
+#include <iostream>
 
-namespace empi::details{		
+namespace empi::details{
+
+
+  template<typename T>
+  struct conditional_deleter{
+    
+    constexpr conditional_deleter() noexcept = default;
+    constexpr explicit conditional_deleter(bool owving) : _is_owning_ptr(owving) {}
+
+    template<typename Up>
+    requires std::is_convertible_v<Up*, T*>
+    constexpr explicit conditional_deleter(const conditional_deleter<Up>& cd) noexcept {}
+
+    void operator()(T* _ptr) const {
+      if(_is_owning_ptr){
+        delete _ptr;
+	  }
+      #ifdef TEST
+      _ptr = nullptr;
+      #endif
+    }
+
+    private:
+      bool _is_owning_ptr = false;
+  };
+
+    template<typename T>
+    struct conditional_deleter<T[]>{
+    
+    constexpr conditional_deleter() noexcept = default;
+    constexpr explicit conditional_deleter(bool owving) : _is_owning_ptr(owving) {}
+
+    template<typename Up>
+    requires std::is_convertible_v<Up(*)[], T(*)[]>
+    constexpr explicit conditional_deleter(const conditional_deleter<Up[]>& cd) noexcept {}
+
+    template<typename Up>
+    requires std::is_convertible_v<Up(*)[], T(*)[]>
+    void operator()(Up* _ptr) const {
+      if(_is_owning_ptr)
+        delete[] _ptr;
+      #ifdef TEST
+      _ptr = nullptr;
+      #endif
+    }
+
+    private:
+      bool _is_owning_ptr = false;
+  };
+
+
 
 		template<typename T>
 		inline constexpr auto abs(T& a, T&b) -> decltype(std::declval<T>() - std::declval<T>()) {
