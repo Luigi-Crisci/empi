@@ -61,13 +61,13 @@ namespace empi{
 		  template<typename K>
 		  int inline _send_impl(K&& data, const int dest, const size_t size, const Tag tag) const {
 				using element_type = details::get_true_type_t<K>;
-				if constexpr (!details::is_mdspan<K>){
-					return EMPI_SEND(empi_byte_cast(details::get_underlying_pointer(std::forward<K>(data))), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
-				}
-				else{
-					auto&& ptr = layouts::compact(std::forward<K>(data));
-					return EMPI_SEND(empi_byte_cast(ptr), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
-				}	
+				auto&& ptr = details::get_underlying_pointer(std::forward<K>(data), true);
+				return EMPI_SEND(empi_byte_cast(ptr), 
+								size * details::size_of<element_type>, 
+								MPI_BYTE,
+								dest,
+								tag.value,
+								communicator);
 		  }
 
 		  template<typename K>
@@ -147,13 +147,8 @@ namespace empi{
 		  inline std::shared_ptr<async_event>& _isend_impl(K&& data, const int dest, const size_t size, const Tag tag){
 			auto&& event = _request_pool->get_req();
 			using element_type = details::get_true_type_t<K>;
-			if constexpr (!details::is_mdspan<K>){
-				EMPI_ISEND(empi_byte_cast(details::get_underlying_pointer(std::forward<K>(data))), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator, event->request.get());
-			}
-			else{
-				auto&& ptr = layouts::compact(std::forward<K>(data));
-				EMPI_ISEND(empi_byte_cast(ptr), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator);
-			}
+			auto&& ptr = details::get_underlying_pointer(std::forward<K>(data));
+			EMPI_ISEND(empi_byte_cast(ptr), size * details::size_of<element_type>,  MPI_BYTE, dest, tag.value, communicator, event->request.get());
 			return event;
 		  }
 
