@@ -14,76 +14,67 @@ double Mean(double[], int);
 double Median(double[], int);
 void Print_times(double[], int);
 
+
 int main(int argc, char **argv) {
-  int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100, pow_2;
+  int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
   double t_start, t_end, t_start_inner;
   constexpr int SCALE = 1000000;
-
+  long nBytes;
   empi::Context ctx(&argc, &argv);
+  auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
 
   // ------ PARAMETER SETUP -----------
   pow_2 = atoi(argv[1]);
   max_iter = atoi(argv[2]);
-  
+ 
   double mpi_time = 0.0;
   nBytes = std::pow(2, pow_2);
   n = nBytes;
-  std::vector<char> myarr(n,0);
 
-  auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
-  MPI_Status status;
-  const int rank = message_group->rank();
-  
+  std::vector<char> myarr(n,message_group->rank() + 'a');
   // Constucting layout
   size_t A = std::stoi(argv[3]);
-  size_t B = std::stoi(argv[4]);
-  auto tiled_size = n / B * A;
+  size_t B1 = std::stoi(argv[4]);
+  size_t B2  = std::stoi(argv[5]);
+  
+  assert(A <= B1 && A<= B2);
+  assert(n % (B1 + B2) == 0);
+  auto num_blocks = (n / (B1 + B2)) * 2;
+  auto tiled_size = num_blocks * A;
   empi::stdex::dextents<size_t, 1> ext(tiled_size);
+  std::array sizes{A,A};
+  std::array strides{B1,B2};
+
   auto view = empi::layouts::block_layout::build(myarr, 
                                                 ext,
-                                                std::span(&A,1),
-                                                std::span(&B,1));
+                                                sizes,
+                                                strides);
+  std::vector<char> recv(tiled_size * message_group->size(), 'F');
 
-  
-  std::vector<char> res(tiled_size);
-  std::cout << "tiled size: " << tiled_size << "\n";
+  message_group->run([&](empi::MessageGroupHandler<char> &mgh) {
+      // Warmup
+      mgh.barrier();
+      mgh.Allgather(view,tiled_size,recv,tiled_size);
+      mgh.barrier();
 
-  message_group->run(
-      [&](empi::MessageGroupHandler<char, empi::Tag{0}, empi::NOSIZE> &mgh) { 
-          // Warm up
-          mgh.barrier();
-          if(rank == 0){
-            mgh.send(view,1,tiled_size);
-            mgh.recv(res,1,tiled_size,status);
-          }else{
-            mgh.recv(view,0,tiled_size,status);
-            mgh.send(res,0,tiled_size);
-          }
-          mgh.barrier();
+      if (message_group->rank() == 0)
+          t_start = MPI_Wtime();
 
-          if (message_group->rank() == 0)
-              t_start = MPI_Wtime();
+      auto ptr = empi::layouts::block_layout::compact(view);
+      for (auto iter = 0; iter < max_iter; iter++) {
+        mgh.Allgather(ptr.get(),tiled_size,recv,tiled_size);       
+      }
 
-          auto ptr = empi::layouts::block_layout::compact(view);
-          for (auto iter = 0; iter < max_iter; iter++) {
-            if(rank == 0){
-              mgh.send(ptr.get(),1,tiled_size);
-              mgh.recv(res,1,tiled_size,status);
-            } else {
-              mgh.recv(res,0,tiled_size,status);
-              mgh.send(res,0,tiled_size);
-            }
-          }
+      message_group->barrier();
+      if (message_group->rank() == 0) {
+        t_end = MPI_Wtime();
+        mpi_time =
+            (t_end - t_start) * SCALE;
+      }
+  });
 
-          message_group->barrier();
-          if (message_group->rank() == 0) {
-            t_end = MPI_Wtime();
-            mpi_time = (t_end - t_start) * SCALE;
-          }
-      });
-
+      
   message_group->barrier();
-
   if (message_group->rank() == 0) {
     // cout << "\nData Size: " << nBytes << " bytes\n";
     cout << mpi_time << "\n";

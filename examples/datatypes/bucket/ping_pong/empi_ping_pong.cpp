@@ -35,18 +35,24 @@ int main(int argc, char **argv) {
   const int rank = message_group->rank();
   
   // Constucting layout
-  size_t A = std::stoi(argv[3]);
-  size_t B = std::stoi(argv[4]);
-  auto tiled_size = n / B * A;
+  size_t A1 = std::stoi(argv[3]);
+  size_t A2 = std::stoi(argv[4]);
+  size_t B  = std::stoi(argv[5]);
+  
+  assert( n % B == 0);
+  auto num_blocks = n / B;
+  auto half_block = num_blocks / 2;
+  auto tiled_size = half_block * (A1+A2);
   empi::stdex::dextents<size_t, 1> ext(tiled_size);
+  std::array sizes{A1,A2};
+  std::array strides{B,B};
+
   auto view = empi::layouts::block_layout::build(myarr, 
                                                 ext,
-                                                std::span(&A,1),
-                                                std::span(&B,1));
-
-  
+                                                sizes,
+                                                strides);
+ 
   std::vector<char> res(tiled_size);
-  std::cout << "tiled size: " << tiled_size << "\n";
 
   message_group->run(
       [&](empi::MessageGroupHandler<char, empi::Tag{0}, empi::NOSIZE> &mgh) { 
@@ -56,7 +62,7 @@ int main(int argc, char **argv) {
             mgh.send(view,1,tiled_size);
             mgh.recv(res,1,tiled_size,status);
           }else{
-            mgh.recv(view,0,tiled_size,status);
+            mgh.recv(res,0,tiled_size,status);
             mgh.send(res,0,tiled_size);
           }
           mgh.barrier();

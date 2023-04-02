@@ -5,7 +5,7 @@
 #include <mpi.h>
 
 
-struct trivial_struct {
+struct basic_struct {
 	int x;
 	int y;
 	float z;
@@ -68,6 +68,7 @@ int bl_bucket(MPI_Datatype *t, int* flags, MPI_Datatype b, int A1, int A2, int B
     MPI_Type_indexed(2,block,displ,b,&t1);
     MPI_Type_create_resized(t1,0,2*B*eb,t);
     MPI_Type_free(&t1); // make sure intermediate type is eventually freed
+    MPI_Type_commit(t);
 
     return MPI_SUCCESS;
 }
@@ -93,6 +94,7 @@ int bl_block(MPI_Datatype *t, int* flags, MPI_Datatype b, int A, int B1, int B2)
     MPI_Type_create_indexed_block(2,A,displ,b,&t1);
     MPI_Type_create_resized(t1,0,(B1+B2)*eb,t);
     MPI_Type_free(&t1); // make sure intermediate type is eventually freed
+    MPI_Type_commit(t);
 
     return MPI_SUCCESS;
 }
@@ -120,6 +122,7 @@ int bl_alternating(MPI_Datatype *t, int* flags, MPI_Datatype b, int A1, int A2, 
     MPI_Type_indexed(2, block, displ, b, &t1);
     MPI_Type_create_resized(t1, 0, (B1 + B2) * eb, t);
     MPI_Type_free(&t1); // make sure intermediate type is eventually freed
+    MPI_Type_commit(t);
 
     return MPI_SUCCESS;
 }

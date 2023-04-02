@@ -31,7 +31,6 @@ template<typename T, template<typename , size_t...> typename Extents, typename L
 requires (is_trivial_view<Layout, Accessor>)
 auto constexpr compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-	
 	std::unique_ptr<element_type, details::conditional_deleter<element_type>> uptr(view.data_handle()); 
 	return uptr;
 }

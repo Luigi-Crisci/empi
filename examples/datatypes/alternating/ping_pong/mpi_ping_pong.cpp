@@ -49,12 +49,14 @@ int main(int argc, char **argv) {
   }
 
   // Getting layout values
-  int A = std::stoi(argv[3]);
-  int B = std::stoi(argv[4]);
+  int A1 = std::stoi(argv[3]);
+  int A2 = std::stoi(argv[4]);
+  int B1  = std::stoi(argv[5]);
+  int B2  = std::stoi(argv[6]);
   MPI_Datatype tiled_datatype;
   int flags;
 
-  bl_tiled(&tiled_datatype, &flags, A, B, basic_type);
+  bl_alternating(&tiled_datatype, &flags, basic_type, A1, A2, B1,B2);
 
   MPI_Aint lb, size, extent;
   MPI_Aint basic_size, basic_extent;

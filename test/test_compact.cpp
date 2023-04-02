@@ -70,6 +70,27 @@ TEST_CASE("Compact block tiled layout", "[mdspan|layouts|compact]"){
 	
 }
 
+// TEST_CASE("Compact block bucket layout", "[mdspan|layouts|compact]"){
+// 	std::vector<int> v(32);
+// 	std::iota(v.begin(),v.end(),0);
+
+// 	std::vector<size_t> blocks({2, 4});
+// 	std::vector<size_t> strides({4, 4});
+// 	constexpr auto size = 24;
+// 	stdex::extents<size_t,size> ext;
+// 	auto view = empi::layouts::block_layout::build(v, ext, 
+// 														blocks,strides,
+// 													    std::experimental::default_accessor<int>());
+// 	auto ptr = empi::layouts::block_layout::compact(view);
+// 	for (int i = 0; i < view.extent(0); i++) {
+// 		// REQUIRE(ptr.get()[i] == i + (1 * (i/4)));
+// 		//TODO: not implemented...
+// 	}
+	
+// }
+
+
+
 TEST_CASE("Compact non-contiguous data", "[compact][layouts]"){
 	using namespace std::experimental;
 	std::vector<int> v(16, 10);
