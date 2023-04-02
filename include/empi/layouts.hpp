@@ -311,13 +311,15 @@ struct block_layout {
     template<typename T, template<typename , size_t...> typename Extents, typename Accessor, typename idx_type, size_t ...idx>
     static constexpr auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,block_layout,Accessor>& view){
       using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+  
       auto ptr = new element_type[view.size()];
       auto base = ptr;
       using extent_type = std::remove_cvref_t<decltype(view)>::extents_type;
       const auto& mapping = static_cast<block_layout::mapping<extent_type>>(view.mapping());
       int num_blocks = mapping.blocks.size();
+      
       for (int pos = 0, block = 0; pos < view.extent(0); pos += mapping.blocks[block], block = (block+1)%num_blocks) {
-        memcpy(ptr, &view[pos] , (mapping.blocks[block]) * sizeof(element_type));
+        std::copy(&view[pos], &view[pos + mapping.blocks[block]], ptr);
         ptr += mapping.blocks[block];
       }
       details::conditional_deleter<element_type> del(true);
@@ -339,8 +341,9 @@ struct block_layout {
       mapping(const mapping &) noexcept = default;
       mapping &operator=(const mapping &) noexcept = default;
 
-      template <std::ranges::forward_range K>
-      constexpr mapping(const Extents& ext, K &&b, K &&s)
+      constexpr mapping(const Extents& ext, 
+                        std::ranges::forward_range auto&& b, 
+                        std::ranges::forward_range auto&& s)
           : _extents(ext), blocks(b), strides(s), sum_blocks(0), sum_diffs(0)
       {
         // At least one block and stride
