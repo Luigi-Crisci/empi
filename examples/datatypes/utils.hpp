@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <mpi.h>
+#include <string>
 
 
 struct basic_struct {
@@ -12,6 +13,26 @@ struct basic_struct {
 };
 
 static MPI_Datatype basic_type = MPI_CHAR;
+
+void build_struct_mpi_type(MPI_Datatype* t){
+    int blocklengths[3] = {1, 1, 1};
+    MPI_Aint displacements[3] = {0, sizeof(int), 2*sizeof(int)};
+    MPI_Datatype types[3] = {MPI_INT, MPI_INT, MPI_FLOAT};
+    MPI_Type_create_struct(3, blocklengths, displacements, types, t);
+    MPI_Type_commit(t);
+}
+
+MPI_Datatype get_datatype(const std::string& type){
+    if (type == "basic"){
+        return basic_type;
+    }
+    else{
+        MPI_Datatype struct_t;
+        build_struct_mpi_type(&struct_t);
+        return struct_t;
+    }
+}
+
 
 /*******************************************************/
 /* basic layouts */

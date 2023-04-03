@@ -53,10 +53,11 @@ int main(int argc, char **argv) {
   int A2 = std::stoi(argv[4]);
   int B1  = std::stoi(argv[5]);
   int B2  = std::stoi(argv[6]);
+  string datatype = argv[7];
   MPI_Datatype tiled_datatype;
   int flags;
 
-  bl_alternating(&tiled_datatype, &flags, basic_type, A1, A2, B1,B2);
+  bl_alternating(&tiled_datatype, &flags, get_datatype(datatype), A1, A2, B1, B2);
 
   MPI_Aint lb, size, extent;
   MPI_Aint basic_size, basic_extent;

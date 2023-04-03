@@ -44,10 +44,11 @@ int main(int argc, char **argv) {
   int A  = std::stoi(argv[3]);
   int B1 = std::stoi(argv[4]);
   int B2 = std::stoi(argv[5]);
+  string datatype = argv[6];
   MPI_Datatype tiled_datatype;
   int flags;
   
-  bl_block(&tiled_datatype, &flags, basic_type, A,B1, B2);
+  bl_block(&tiled_datatype, &flags, get_datatype(datatype), A,B1, B2);
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
   MPI_Type_get_extent(tiled_datatype,&aint,&extent);

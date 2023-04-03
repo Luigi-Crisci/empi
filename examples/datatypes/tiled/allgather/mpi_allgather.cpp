@@ -43,10 +43,11 @@ int main(int argc, char **argv) {
   // Getting layout values
   int A = std::stoi(argv[3]);
   int B = std::stoi(argv[4]);
+  string datatype = argv[5];
   MPI_Datatype tiled_datatype;
   int flags;
   
-  bl_tiled(&tiled_datatype, &flags, A, B, basic_type);
+  bl_tiled(&tiled_datatype, &flags, A, B, get_datatype(datatype));
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
   MPI_Type_get_extent(tiled_datatype,&aint,&extent);

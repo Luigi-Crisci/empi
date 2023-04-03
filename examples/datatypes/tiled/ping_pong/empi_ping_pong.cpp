@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <empi/empi.hpp>
 
+#include "../../utils.hpp"
+
 using namespace std;
 
 double Mean(double[], int);
@@ -28,7 +30,7 @@ int main(int argc, char **argv) {
   double mpi_time = 0.0;
   nBytes = std::pow(2, pow_2);
   n = nBytes;
-  std::vector<char> myarr(n,0);
+  
 
   auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
   MPI_Status status;
@@ -37,49 +39,64 @@ int main(int argc, char **argv) {
   // Constucting layout
   size_t A = std::stoi(argv[3]);
   size_t B = std::stoi(argv[4]);
-  auto tiled_size = n / B * A;
-  empi::stdex::dextents<size_t, 1> ext(tiled_size);
-  auto view = empi::layouts::block_layout::build(myarr, 
-                                                ext,
-                                                std::span(&A,1),
-                                                std::span(&B,1));
+  string datatype = argv[5];
 
+  auto run_bench = [&](auto data_t_v) {
   
-  std::vector<char> res(tiled_size);
+    using type = decltype(data_t_v);
+    n = n / sizeof(type);
+    assert(n > 0);
 
-  message_group->run(
-      [&](empi::MessageGroupHandler<char, empi::Tag{0}, empi::NOSIZE> &mgh) { 
-          // Warm up
-          mgh.barrier();
-          if(rank == 0){
-            mgh.send(view,1,tiled_size);
-            mgh.recv(res,1,tiled_size,status);
-          }else{
-            mgh.recv(view,0,tiled_size,status);
-            mgh.send(res,0,tiled_size);
-          }
-          mgh.barrier();
+    std::vector<type> myarr(n);
+    auto tiled_size = n / B * A;
+    empi::stdex::dextents<size_t, 1> ext(tiled_size);
+    auto view = empi::layouts::block_layout::build(myarr, 
+                                                  ext,
+                                                  std::span(&A,1),
+                                                  std::span(&B,1));
 
-          if (message_group->rank() == 0)
-              t_start = MPI_Wtime();
+    std::vector<type> res(tiled_size);
 
-          auto ptr = empi::layouts::block_layout::compact(view);
-          for (auto iter = 0; iter < max_iter; iter++) {
+    message_group->run(
+        [&](empi::MessageGroupHandler<type, empi::Tag{0}, empi::NOSIZE> &mgh) { 
+            // Warm up
+            mgh.barrier();
             if(rank == 0){
-              mgh.send(ptr.get(),1,tiled_size);
+              mgh.send(view,1,tiled_size);
               mgh.recv(res,1,tiled_size,status);
-            } else {
-              mgh.recv(res,0,tiled_size,status);
+            }else{
+              mgh.recv(view,0,tiled_size,status);
               mgh.send(res,0,tiled_size);
             }
-          }
+            mgh.barrier();
 
-          message_group->barrier();
-          if (message_group->rank() == 0) {
-            t_end = MPI_Wtime();
-            mpi_time = (t_end - t_start) * SCALE;
-          }
-      });
+            if (message_group->rank() == 0)
+                t_start = MPI_Wtime();
+
+            auto ptr = empi::layouts::block_layout::compact(view);
+            for (auto iter = 0; iter < max_iter; iter++) {
+              if(rank == 0){
+                mgh.send(ptr.get(),1,tiled_size);
+                mgh.recv(res,1,tiled_size,status);
+              } else {
+                mgh.recv(res,0,tiled_size,status);
+                mgh.send(res,0,tiled_size);
+              }
+            }
+
+            message_group->barrier();
+            if (message_group->rank() == 0) {
+              t_end = MPI_Wtime();
+              mpi_time = (t_end - t_start) * SCALE;
+            }
+        });
+  };
+
+  if(datatype == "basic") {
+    run_bench(char());
+  } else {
+    run_bench(basic_struct{});
+  }
 
   message_group->barrier();
 
