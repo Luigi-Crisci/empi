@@ -319,7 +319,7 @@ struct block_layout {
       int num_blocks = mapping.blocks.size();
       
       for (int pos = 0, block = 0; pos < view.extent(0); pos += mapping.blocks[block], block = (block+1)%num_blocks) {
-        std::copy(&view[pos], &view[pos + mapping.blocks[block]], ptr);
+        std::copy(&view[pos], &view[pos] + mapping.blocks[block], ptr);
         ptr += mapping.blocks[block];
       }
       details::conditional_deleter<element_type> del(true);
