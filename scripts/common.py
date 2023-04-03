@@ -50,7 +50,7 @@ def run_experiment(args,exp_name,run_command, parse_output):
     newline="\n" #f-string limitation bypass
     for i in range(0,args.app_restart,1):
         print(f'{i+1}..{newline if i==(args.app_restart-1) else ""}',end='',flush=True)
-        # print(run_command)
+        print(run_command)
         res = command.run(run_command)
         time_sum += float(parse_output(res.output))
     print(f"Aggregated time: {time_sum}")
@@ -69,9 +69,10 @@ def make_minibench_command(args, exp_path):
         f'{args.app_iter}'
 ]
 
-def make_datatype_command(args, exp_path, data_sizes):
+def make_datatype_command(args, exp_path, data_sizes, datatype):
     base = make_minibench_command(args, exp_path)
     base.extend(data_sizes)
+    base.append(datatype)
     return base
 
 def make_lulesh_command(args):

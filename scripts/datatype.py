@@ -11,6 +11,16 @@ if __name__ == '__main__':
                    default="../build/examples/datatypes/",
                    help="Path to the benchmark folder (default: ../build/examples/datatypes/)"
                    )
+    p.add_argument("--basic",
+                   action='store_true',
+                   default=False,
+                   help="Enable basic datatype benchs"
+                   )
+    p.add_argument("--struct",
+                   action='store_true',
+                   default=False,
+                   help="Enable struct datatype bench"
+                   )
     p.add_argument("--tiled",
                    action='store_true',
                    default=False,
@@ -54,6 +64,14 @@ if __name__ == '__main__':
     args = p.parse_args()
     def noop(x): return x
 
+    datatypes = []
+    if args.basic:
+        datatypes.append("basic")
+    if args.struct:
+        datatypes.append("struct")
+    if(len(datatypes) == 0):
+        raise AssertionError("User must provide at least one datatype")
+    
     layouts = []
     layout_args = dict()
     if args.tiled and (args.tiled_sizes is not None):
@@ -70,18 +88,20 @@ if __name__ == '__main__':
         layout_args["alternating"] = [str(x) for x in args.alternating_sizes]
 
     print(f"Conf: {args}")
-
-    for layout in layouts:
-        print(f"//--------------- {layout} layout -----------------//")
-        tmp = args.num_proc
-        args.num_proc = 2
-        run_experiment(args, f"{layout} -> Ping pong: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_ping_pong", layout_args[layout]),noop)
-        run_experiment(args, f"{layout} -> Ping_pong: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_ping_pong", layout_args[layout]),noop)
-        args.num_proc = tmp
-        
-        run_experiment(args, f"{layout} -> Bcast: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_bcast", layout_args[layout]),noop)
-        run_experiment(args, f"{layout} -> Bcast: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_bcast", layout_args[layout]),noop)
-        
-        run_experiment(args, f"{layout} -> Allgather: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_allgather", layout_args[layout]),noop)
-        run_experiment(args, f"{layout} -> Allgather: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_allgather", layout_args[layout]),noop)
-        print(f"//---------------------------------------------------//")
+    
+    for datatype in datatypes:
+        print(f"//------------------------- {datatype} datatype ------------------------//")
+        for layout in layouts:
+            print(f"//--------------- {layout} layout -----------------//")
+            tmp = args.num_proc
+            args.num_proc = 2
+            run_experiment(args, f"{layout} -> Ping pong: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_ping_pong", layout_args[layout], datatype),noop)
+            run_experiment(args, f"{layout} -> Ping_pong: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_ping_pong", layout_args[layout], datatype),noop)
+            args.num_proc = tmp
+            
+            run_experiment(args, f"{layout} -> Bcast: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_bcast", layout_args[layout], datatype),noop)
+            run_experiment(args, f"{layout} -> Bcast: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_bcast", layout_args[layout], datatype),noop)
+            
+            run_experiment(args, f"{layout} -> Allgather: MPI", make_datatype_command(args, f"{layout}/{layout}_mpi_allgather", layout_args[layout], datatype),noop)
+            run_experiment(args, f"{layout} -> Allgather: EMPI", make_datatype_command(args, f"{layout}/{layout}_empi_allgather", layout_args[layout], datatype),noop)
+            print(f"//---------------------------------------------------//")
