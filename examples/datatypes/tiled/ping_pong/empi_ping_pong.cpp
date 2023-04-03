@@ -46,7 +46,6 @@ int main(int argc, char **argv) {
 
   
   std::vector<char> res(tiled_size);
-  std::cout << "tiled size: " << tiled_size << "\n";
 
   message_group->run(
       [&](empi::MessageGroupHandler<char, empi::Tag{0}, empi::NOSIZE> &mgh) { 

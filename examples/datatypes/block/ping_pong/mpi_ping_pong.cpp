@@ -64,13 +64,13 @@ int main(int argc, char **argv) {
   MPI_Type_get_extent(basic_type, &basic_size, &basic_extent);
 
   int tiled_size = n / (extent / basic_extent);
-  if (myid == 0) {
-    std::cout << "tiled size: " << tiled_size << "\n";
-    std::cout << "Extent: " << extent << "\n";
-    std::cout << "Size: " << size << "\n";
-    std::cout << "Total size: " << tiled_size * size << "\n";
-    std::cout << "Required memory: " << tiled_size * extent << "\n";
-  }
+  // if (myid == 0) {
+  //   std::cout << "tiled size: " << tiled_size << "\n";
+  //   std::cout << "Extent: " << extent << "\n";
+  //   std::cout << "Size: " << size << "\n";
+  //   std::cout << "Total size: " << tiled_size * size << "\n";
+  //   std::cout << "Required memory: " << tiled_size * extent << "\n";
+  // }
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
