@@ -315,7 +315,7 @@ struct block_layout {
       auto ptr = new element_type[view.size()];
       auto base = ptr;
       using extent_type = std::remove_cvref_t<decltype(view)>::extents_type;
-      const auto& mapping = static_cast<block_layout::mapping<extent_type>>(view.mapping());
+      const auto& mapping = view.mapping();
       int num_blocks = mapping.blocks.size();
       
       for (int pos = 0, block = 0; pos < view.extent(0); pos += mapping.blocks[block], block = (block+1)%num_blocks) {
