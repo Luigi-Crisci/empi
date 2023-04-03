@@ -24,12 +24,12 @@ int main(int argc, char **argv) {
   empi::Context ctx(&argc, &argv);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = atoi(argv[1]);
+  n = atoi(argv[1]);
   max_iter = atoi(argv[2]);
 
   double mpi_time = 0.0;
-  nBytes = std::pow(2, pow_2);
-  n = nBytes;
+  
+  
 
   size_t A = std::stoi(argv[3]);
   size_t B = std::stoi(argv[4]);
@@ -42,10 +42,14 @@ int main(int argc, char **argv) {
     using type = decltype(data_t_v);
     n = n / sizeof(type);
     assert(n > 0);
+    // std::cout << "size of struct: " << sizeof(type) << "\n";
 
     auto view_size = n / B * A;
+    // std::cout << "n: " << n << '\n';
+    // std::cout << "View size: " << view_size << "\n";
     empi::stdex::dextents<size_t, 1> ext(view_size);
     std::vector<type> myarr(n);
+
     auto view = empi::layouts::block_layout::build(myarr, ext, std::span(&A, 1),
                                                    std::span(&B, 1));
 

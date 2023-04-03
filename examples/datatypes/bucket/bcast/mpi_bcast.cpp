@@ -1,10 +1,10 @@
 #include <bits/stdc++.h>
 #include <chrono>
+#include <cstdio>
+#include <ctime>
 #include <iostream>
 #include <malloc.h>
 #include <mpi.h>
-#include <cstdio>
-#include <ctime>
 #include <unistd.h>
 
 #include "../../utils.hpp"
@@ -21,7 +21,6 @@ int main(int argc, char **argv) {
   long n;
   constexpr int SCALE = 1000000;
 
-
   MPI_Status status;
   err = MPI_Init(&argc, &argv);
   if (err != MPI_SUCCESS) {
@@ -33,34 +32,48 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = std::stoi(argv[1]);
+ n = std::stoi(argv[1]);
   max_iter = std::stoi(argv[2]);
 
-  n = std::pow(2, pow_2);
-  char* arr = new char[n];
+  
 
   // Getting layout values
   int A1 = std::stoi(argv[3]);
   int A2 = std::stoi(argv[4]);
-  int B  = std::stoi(argv[5]);
+  int B = std::stoi(argv[5]);
   string datatype = argv[6];
   MPI_Datatype tiled_datatype;
   int flags;
-  
-  bl_bucket(&tiled_datatype, &flags, get_datatype(datatype), A1, A2, B);
+
+  void *arr;
+  if (datatype == "basic")
+    arr = allocate<char>(n / sizeof(char));
+  else
+    arr = allocate<basic_struct>(n / sizeof(basic_struct));
+
+  auto raw_datatype = get_datatype(datatype);
+  bl_bucket(&tiled_datatype, &flags, raw_datatype, A1, A2, B);
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
-  MPI_Type_get_extent(tiled_datatype,&aint,&extent);
-  MPI_Type_get_extent(basic_type,&aint,&basic_extent);
+  MPI_Type_get_extent(tiled_datatype, &aint, &extent);
+  MPI_Type_get_extent(raw_datatype, &aint, &basic_extent);
 
-  int tiled_size = n / (extent / basic_extent);
-    
+  n = n / basic_extent;
+  assert(n > 0);
+
+  assert(n % B == 0);
+  auto num_blocks = n / B;
+  auto half_block = num_blocks / 2;
+  auto tiled_size = half_block * (A1 + A2) / B;
+
+  
+
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Bcast(arr, tiled_size, tiled_datatype, 0, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //main measurement
+  // main measurement
   if (myid == 0)
     t_start = MPI_Wtime();
 
@@ -73,15 +86,16 @@ int main(int argc, char **argv) {
     t_end = MPI_Wtime();
     mpi_time = (t_end - t_start) * SCALE;
   }
-  
+
   MPI_Barrier(MPI_COMM_WORLD);
-  
+
   if (myid == 0) {
     // cout << "\nData Size: " << nBytes << " bytes\n";
     cout << mpi_time << "\n";
     // cout << "Mean of communication times: " << Mean(mpi_time , num_restart)
     //      << "\n";
-    // cout << "Median of communication times: " << Median(mpi_time , num_restart )
+    // cout << "Median of communication times: " << Median(mpi_time ,
+    // num_restart )
     //      << "\n";
     // Print_times(mpi_time, num_restart);
   }

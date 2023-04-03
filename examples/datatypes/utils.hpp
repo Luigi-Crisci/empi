@@ -33,6 +33,11 @@ MPI_Datatype get_datatype(const std::string& type){
     }
 }
 
+template<typename T>
+void* allocate(int n){
+    return (void*) new T[n];
+}
+
 
 /*******************************************************/
 /* basic layouts */

@@ -33,13 +33,11 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = std::stoi(argv[1]);
+ n = std::stoi(argv[1]);
   max_iter = std::stoi(argv[2]);
 
-  n = std::pow(2, pow_2);
-  char* arr = new char[n];
-  char* recv = new char[n * procs];
-
+  
+  void* arr, *recv;
   // Getting layout values
   int A = std::stoi(argv[3]);
   int B = std::stoi(argv[4]);
@@ -47,13 +45,22 @@ int main(int argc, char **argv) {
   MPI_Datatype tiled_datatype;
   int flags;
   
-  bl_tiled(&tiled_datatype, &flags, A, B, get_datatype(datatype));
+  if(datatype == "basic"){
+      arr = allocate<char>(n / sizeof(char));
+      recv = allocate<char>(n * procs / sizeof(char));
+  }else{
+      arr = allocate<basic_struct>(n / sizeof(basic_struct));
+      recv = allocate<basic_struct>(n * procs / sizeof(basic_struct));
+  }
+
+  auto raw_datatype = get_datatype(datatype);
+bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
   MPI_Type_get_extent(tiled_datatype,&aint,&extent);
-  MPI_Type_get_extent(basic_type,&aint,&basic_extent);
+  MPI_Type_get_extent(raw_datatype,&aint,&basic_extent);
 
-  int tiled_size = n / (extent / basic_extent);
+  int tiled_size = (n / basic_extent) * A / B / B;  
     
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);

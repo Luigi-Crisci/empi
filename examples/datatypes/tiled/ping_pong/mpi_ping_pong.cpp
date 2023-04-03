@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
                                                          pow_2;
   double t_start, t_end;
   constexpr int SCALE = 1000000;
-  char *arr, *myarr;
 
   MPI_Status status;
 
@@ -34,19 +33,12 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = atoi(argv[1]);
+  n = atoi(argv[1]);
   max_iter = atoi(argv[2]);
 
   double mpi_time;
-  nBytes = pow(2, pow_2);
-  n = nBytes;
-  myarr = new char[n];
-  arr = new char[n];
-
-  if (myid == 0) {
-    for (int j = 0; j < n; j++)
-      arr[j] = 0;
-  }
+  
+  
 
   // Getting layout values
   int A = std::stoi(argv[3]);
@@ -55,21 +47,25 @@ int main(int argc, char **argv) {
   MPI_Datatype tiled_datatype;
   int flags;
 
-  bl_tiled(&tiled_datatype, &flags, A, B, get_datatype(datatype));
+  void* myarr, *arr;
+  if(datatype == "basic"){
+      myarr = allocate<char>(n / sizeof(char));
+      arr = allocate<char>(n / sizeof(char));
+  }else{
+      myarr = allocate<basic_struct>(n / sizeof(basic_struct));
+      arr = allocate<basic_struct>(n / sizeof(basic_struct));
+  }
+  
+  auto raw_datatype = get_datatype(datatype);
+  bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
 
-  MPI_Aint lb, size, extent;
   MPI_Aint basic_size, basic_extent;
-  MPI_Type_get_extent(tiled_datatype, &lb, &extent);
-  MPI_Type_get_true_extent(tiled_datatype, &lb, &size);
-  MPI_Type_get_extent(basic_type, &basic_size, &basic_extent);
+  MPI_Type_get_extent(raw_datatype, &basic_size, &basic_extent);
 
-  int tiled_size = n / (extent / basic_extent);
+  int tiled_size = (n / basic_extent) * A / B / B;  
+  
   // if (myid == 0) {
   //   std::cout << "tiled size: " << tiled_size << "\n";
-  //   std::cout << "Extent: " << extent << "\n";
-  //   std::cout << "Size: " << size << "\n";
-  //   std::cout << "Total size: " << tiled_size * size << "\n";
-  //   std::cout << "Required memory: " << tiled_size * extent << "\n";
   // }
 
   // Warmup

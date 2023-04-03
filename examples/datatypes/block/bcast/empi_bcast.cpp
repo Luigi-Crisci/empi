@@ -23,12 +23,12 @@ int main(int argc, char **argv) {
   empi::Context ctx(&argc, &argv);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = atoi(argv[1]);
+  n = atoi(argv[1]);
   max_iter = atoi(argv[2]);
 
   double mpi_time = 0.0;
-  nBytes = std::pow(2, pow_2);
-  n = nBytes;
+  
+  
   auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
 
   // Constucting layout

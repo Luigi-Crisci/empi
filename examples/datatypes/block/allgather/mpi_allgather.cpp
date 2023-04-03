@@ -1,10 +1,10 @@
 #include <bits/stdc++.h>
 #include <chrono>
+#include <cstdio>
+#include <ctime>
 #include <iostream>
 #include <malloc.h>
 #include <mpi.h>
-#include <cstdio>
-#include <ctime>
 #include <unistd.h>
 
 #include "../../utils.hpp"
@@ -21,7 +21,6 @@ int main(int argc, char **argv) {
   long n;
   constexpr int SCALE = 1000000;
 
-
   MPI_Status status;
   err = MPI_Init(&argc, &argv);
   if (err != MPI_SUCCESS) {
@@ -33,40 +32,57 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = std::stoi(argv[1]);
+ n = std::stoi(argv[1]);
   max_iter = std::stoi(argv[2]);
 
-  n = std::pow(2, pow_2);
-  char* arr = new char[n];
-  char* recv = new char[n * procs];
+  
 
   // Getting layout values
-  int A  = std::stoi(argv[3]);
+  int A = std::stoi(argv[3]);
   int B1 = std::stoi(argv[4]);
   int B2 = std::stoi(argv[5]);
   string datatype = argv[6];
   MPI_Datatype tiled_datatype;
   int flags;
-  
-  bl_block(&tiled_datatype, &flags, get_datatype(datatype), A,B1, B2);
+
+  void *arr;
+  void *recv;
+  if (datatype == "basic") {
+    arr = allocate<char>(n / sizeof(char));
+    recv = allocate<char>(n * procs / sizeof(char));
+  } else {
+    arr = allocate<basic_struct>(n / sizeof(basic_struct));
+    recv = allocate<basic_struct>(n * procs / sizeof(basic_struct));
+  }
+
+  auto raw_datatype = get_datatype(datatype);
+bl_block(&tiled_datatype, &flags, raw_datatype, A, B1, B2);
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
-  MPI_Type_get_extent(tiled_datatype,&aint,&extent);
-  MPI_Type_get_extent(basic_type,&aint,&basic_extent);
+  MPI_Type_get_extent(tiled_datatype, &aint, &extent);
+  MPI_Type_get_extent(raw_datatype, &aint, &basic_extent);
 
-  int tiled_size = n / (extent / basic_extent);
-    
+  n = n / basic_extent;
+  assert(n > 0);
+
+  assert(A <= B1 && A <= B2);
+  assert(n % (B1 + B2) == 0);
+  auto num_blocks = (n / (B1 + B2)) * 2;
+  auto tiled_size = num_blocks * A / (B1 + B2);
+
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size, tiled_datatype , MPI_COMM_WORLD);
+  MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size,
+                tiled_datatype, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //main measurement
+  // main measurement
   if (myid == 0)
     t_start = MPI_Wtime();
 
   for (auto iter = 0; iter < max_iter; iter++) {
-    MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size, tiled_datatype , MPI_COMM_WORLD);
+    MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size,
+                  tiled_datatype, MPI_COMM_WORLD);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -74,15 +90,16 @@ int main(int argc, char **argv) {
     t_end = MPI_Wtime();
     mpi_time = (t_end - t_start) * SCALE;
   }
-  
+
   MPI_Barrier(MPI_COMM_WORLD);
-  
+
   if (myid == 0) {
     // cout << "\nData Size: " << nBytes << " bytes\n";
     cout << mpi_time << "\n";
     // cout << "Mean of communication times: " << Mean(mpi_time , num_restart)
     //      << "\n";
-    // cout << "Median of communication times: " << Median(mpi_time , num_restart )
+    // cout << "Median of communication times: " << Median(mpi_time ,
+    // num_restart )
     //      << "\n";
     // Print_times(mpi_time, num_restart);
   }
