@@ -19,7 +19,6 @@ int main(int argc, char **argv) {
   int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100,
                                                          pow_2;
   double t_start, t_end, t_datatype1, t_datatype2;
-  double mpi_time = 0;
   constexpr int SCALE = 1000000;
   constexpr int WARMUP = 100; 
   double mpi_time = 0.0;

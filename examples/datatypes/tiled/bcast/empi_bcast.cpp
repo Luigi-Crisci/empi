@@ -47,9 +47,9 @@ int main(int argc, char **argv) {
     // std::cout << "View size: " << view_size << "\n";
     std::vector<type> myarr(n);
     t_view1 = MPI_Wtime();
+    empi::stdex::dextents<size_t, 1> ext(view_size);
     auto view = empi::layouts::block_layout::build(myarr, ext, std::span(&A, 1),
                                                    std::span(&B, 1));
-    empi::stdex::dextents<size_t, 1> ext(view_size);
     t_view2 = MPI_Wtime();
 
     message_group->run(

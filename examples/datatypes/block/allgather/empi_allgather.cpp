@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
     std::vector<type> myarr(n);
 
     t_view1 = MPI_Wtime();
-    auto view = empi::layouts::block_layout::build(myarr, ext, sizes, strides);
     empi::stdex::dextents<size_t, 1> ext(tiled_size);
+    auto view = empi::layouts::block_layout::build(myarr, ext, sizes, strides);
     t_view2 = MPI_Wtime();
 
     std::vector<type> recv(tiled_size * message_group->size());
