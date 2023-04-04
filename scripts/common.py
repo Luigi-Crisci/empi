@@ -81,10 +81,10 @@ def run_datatype_experiment(args,exp_name,run_command, parse_output):
     
     print("-----------------------------------------------")
 
-def print_statistics(name, datatype_creation_times):
-    print(f"{name} time -> Aggregated: {sum(datatype_creation_times)}")
-    print(f"{name} time -> Mean:       {statistics.mean(datatype_creation_times)}")
-    print(f"{name} time -> Median:     {statistics.median(datatype_creation_times)}")
+def print_statistics(name, times):
+    print(f"{name} time -> Aggregated: {sum(times)}")
+    print(f"{name} time -> Mean:       {statistics.mean(times)}")
+    print(f"{name} time -> Median:     {statistics.median(times)}")
 
     
 def make_minibench_command(args, exp_path):
