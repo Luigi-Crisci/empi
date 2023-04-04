@@ -4,6 +4,7 @@ Copyright (c) 2023, Luigi Crisci
 """
 import sys
 import command
+import statistics
 import argparse
 import re
 import multiprocessing
@@ -56,6 +57,35 @@ def run_experiment(args,exp_name,run_command, parse_output):
     print(f"Aggregated time: {time_sum}")
     print(f"Mean: {time_sum/args.app_restart}")
     print("-----------------------------------------------")
+    
+def run_datatype_experiment(args,exp_name,run_command, parse_output):
+    print(f"//==----------{exp_name}----------==//")
+    print(f'--- size: {args.size} -- num_proc: {args.num_proc} ---')
+    datatype_creation_times = []
+    compact_times = []
+    overall_times = []
+    newline="\n" #f-string limitation bypass
+    for i in range(0,args.app_restart,1):
+        print(f'{i+1}..{newline if i==(args.app_restart-1) else ""}',end='',flush=True)
+        print(run_command)
+        res = command.run(run_command)
+        result_times = str(res.output)[2:-1].split("\\n")
+        datatype_creation_times.append(float(result_times[0]))
+        overall_times.append(float(result_times[1]))
+        if len(result_times) == 3: compact_times.append(float(result_times[2]))
+        
+    print_statistics("Overall", overall_times)
+    print_statistics("Datatype", datatype_creation_times)
+    if len(compact_times) > 0:
+        print_statistics("Compact", compact_times)
+    
+    print("-----------------------------------------------")
+
+def print_statistics(name, times):
+    print(f"{name} time -> Aggregated: {sum(times)}")
+    print(f"{name} time -> Mean:       {statistics.mean(times)}")
+    print(f"{name} time -> Median:     {statistics.median(times)}")
+
     
 def make_minibench_command(args, exp_path):
     return [
