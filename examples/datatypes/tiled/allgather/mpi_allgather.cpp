@@ -17,12 +17,11 @@ void Print_times(double[], int);
 
 int main(int argc, char **argv) {
   int myid, procs, err, max_iter, nBytes, sleep_time, range = 100, pow_2;
-  double t_start, t_end, mpi_time = 0;
+  double t_start, t_end, mpi_time = 0, t_datatype1, t_datatype2;
   long n;
   constexpr int SCALE = 1000000;
+  constexpr int WARMUP = 100; 
 
-
-  MPI_Status status;
   err = MPI_Init(&argc, &argv);
   if (err != MPI_SUCCESS) {
     cout << "\nError initializing MPI\n";
@@ -33,9 +32,8 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
- n = std::stoi(argv[1]);
+  n = std::stoi(argv[1]);
   max_iter = std::stoi(argv[2]);
-
   
   void* arr, *recv;
   // Getting layout values
@@ -53,8 +51,11 @@ int main(int argc, char **argv) {
       recv = allocate<basic_struct>(n * procs / sizeof(basic_struct));
   }
 
+  t_datatype1 = MPI_Wtime();
   auto raw_datatype = get_datatype(datatype);
-bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
+  bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
+  t_datatype2 = MPI_Wtime();
+  
   MPI_Aint aint, extent;
   MPI_Aint basic_extent;
   MPI_Type_get_extent(tiled_datatype,&aint,&extent);
@@ -64,27 +65,27 @@ bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
     
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size, tiled_datatype , MPI_COMM_WORLD);
+  for (auto iter = 0; iter < WARMUP; iter++)
+    MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size, tiled_datatype , MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
   //main measurement
-  if (myid == 0)
-    t_start = MPI_Wtime();
+  t_start = MPI_Wtime();
 
   for (auto iter = 0; iter < max_iter; iter++) {
     MPI_Allgather(arr, tiled_size, tiled_datatype, recv, tiled_size, tiled_datatype , MPI_COMM_WORLD);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  if (myid == 0) {
-    t_end = MPI_Wtime();
+  t_end = MPI_Wtime();
+  if (myid == 0) 
     mpi_time = (t_end - t_start) * SCALE;
-  }
   
   MPI_Barrier(MPI_COMM_WORLD);
   
   if (myid == 0) {
     // cout << "\nData Size: " << nBytes << " bytes\n";
+    cout << ((t_datatype2 - t_datatype1) * SCALE) << "\n";
     cout << mpi_time << "\n";
     // cout << "Mean of communication times: " << Mean(mpi_time , num_restart)
     //      << "\n";
