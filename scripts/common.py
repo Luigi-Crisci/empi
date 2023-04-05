@@ -92,6 +92,12 @@ def make_minibench_command(args, exp_path):
         f'{args.ompi_path}bin/mpirun',
         f'--allow-run-as-root',
         f'{"--oversubscribe" if multiprocessing.cpu_count() < args.num_proc else "--nooversubscribe"}',
+        # f'--mca',
+        # f'btl_openib_allow_ib',
+        # f'1',
+        # f'--mca',
+        # f'btl_openib_warn_default_gid_prefix',
+        # f'0',
         '-n',
         f'{args.num_proc}',
         f'{args.bench_path}{exp_path}',  # App name
