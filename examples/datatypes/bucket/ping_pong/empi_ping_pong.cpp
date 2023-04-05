@@ -106,9 +106,9 @@ int main(int argc, char **argv) {
 
   if (message_group->rank() == 0) {
     // cout << "\nData Size: " << nBytes << " bytes\n";
-    cout << ((t_view2 - t_view1) * SCALE) << "\n";
-    cout << compact_time << "\n";
     cout << mpi_time << "\n";
+cout << ((t_view2 - t_view1) * SCALE) << "\n"; 
+cout << compact_time << "\n";
     // cout << "Mean of communication times: " << Mean(mpi_time,
     // num_restart)
     //      << "\n";
