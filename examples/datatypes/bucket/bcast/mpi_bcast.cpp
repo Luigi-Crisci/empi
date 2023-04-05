@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   assert(n % B == 0);
   auto num_blocks = n / B;
   auto half_block = num_blocks / 2;
-  auto tiled_size = half_block * (A1 + A2) / B;
+  auto tiled_size = half_block * (A1 + A2) / extent;
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
@@ -100,8 +100,8 @@ int main(int argc, char **argv) {
     //      << "\n";
     // Print_times(mpi_time, num_restart);
   }
-  free(arr);
   MPI_Finalize();
+  free(arr);
   return 0;
 } // end main
 
