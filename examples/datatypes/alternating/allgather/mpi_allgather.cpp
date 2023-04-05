@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
   assert(n % (B1 + B2) == 0);
   auto num_blocks = (n / (B1 + B2)) * 2;
   auto half_block = num_blocks / 2;
-  auto tiled_size = half_block * (A1 + A2) / (B1 + B2);
+  auto tiled_size = half_block * (A1 + A2) / extent;
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);
