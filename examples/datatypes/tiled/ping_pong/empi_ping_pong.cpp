@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
             
             t_end = MPI_Wtime();
             if (message_group->rank() == 0) {
-              mpi_time = (t_end - t_start) * SCALE;
+              mpi_time = (t_end - t_compact2) * SCALE;
               compact_time = (t_compact2 - t_start) * SCALE;
             }
         });
