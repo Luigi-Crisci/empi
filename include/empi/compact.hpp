@@ -18,7 +18,7 @@ template<typename T, template<typename , size_t...> typename Extents, typename L
 auto compact(const stdex::mdspan<T,Extents<idx_type,idx...>,Layout,Accessor>& view){
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
 	auto ptr = new element_type[view.size()];
-	empi::details::apply(view, [p = ptr](Accessor::reference e) mutable {*p=e; p++;});
+	empi::details::apply(view, [p = ptr](typename Accessor::reference e) mutable {*p=e; p++;});
 	details::conditional_deleter<element_type> del(true);
 	std::unique_ptr<element_type, decltype(del)> uptr(std::move(ptr), std::move(del)); 
 	return uptr;

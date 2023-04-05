@@ -8,9 +8,7 @@
 #include <concepts>
 #include <experimental/mdspan>
 
-namespace empi
-{
-namespace details {
+namespace empi::details {
 
 template<typename T, T v1, T v2>
 struct is_greater {
@@ -196,13 +194,12 @@ struct get_true_type<T>{
 };
 
 template<typename T>
-using get_true_type_t = get_true_type<remove_all_t<T>>::type;
+using get_true_type_t = typename get_true_type<remove_all_t<T>>::type;
 
 //////////////// Typed range //////////////
 template<typename Range,typename type>
 concept typed_range = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, type>; 
 
-} // namespace detail
 } // namespace empi
 
 
