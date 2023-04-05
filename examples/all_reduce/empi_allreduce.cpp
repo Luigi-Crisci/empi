@@ -12,9 +12,7 @@
 using namespace std;
 using value_type = int;
 
-double Mean(double[], int);
-double Median(double[], int);
-void Print_times(double[], int);
+
 
 int main(int argc, char **argv) {
   int myid, n, max_iter, pow_2;

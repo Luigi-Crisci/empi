@@ -5,6 +5,7 @@
 #include <mpi.h>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 struct basic_struct {
 	int x;
@@ -54,6 +55,28 @@ MPI_Datatype get_datatype(const std::string& type){
 template<typename T>
 void* allocate(int n){
     return (void*) malloc(sizeof(T) * n);
+}
+
+double Mean(double a[], int n) {
+  double sum = 0.0;
+  for (int i = 0; i < n; i++)
+    sum += a[i];
+
+  return (sum / (double)n);
+}
+
+double Median(double a[], int n) {
+  std::sort(a, a + n);
+  if (n % 2 != 0)
+    return a[n / 2];
+
+  return (a[(n - 1) / 2] + a[n / 2]) / 2.0;
+}
+
+void Print_times(double a[], int n) {
+  std::cout << "\n------------------------------------";
+  for (int t = 0; t < n; t++)
+    std::cout << "\n " << a[t];
 }
 
 

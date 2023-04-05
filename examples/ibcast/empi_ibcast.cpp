@@ -10,9 +10,7 @@
 
 using namespace std;
 
-double Mean(double[], int);
-double Median(double[], int);
-void Print_times(double[], int);
+
 
 
 int main(int argc, char **argv) {
@@ -70,24 +68,3 @@ int main(int argc, char **argv) {
   return 0;
 } // end main
 
-double Mean(double a[], int n) {
-  double sum = 0.0;
-  for (int i = 0; i < n; i++)
-    sum += a[i];
-
-  return (sum / (double)n);
-}
-
-double Median(double a[], int n) {
-  sort(a, a + n);
-  if (n % 2 != 0)
-    return a[n / 2];
-
-  return (a[(n - 1) / 2] + a[n / 2]) / 2.0;
-}
-
-void Print_times(double a[], int n) {
-  cout << "\n------------------------------------";
-  for (int t = 0; t < n; t++)
-    cout << "\n " << a[t];
-}
