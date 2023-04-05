@@ -60,19 +60,10 @@ int main(int argc, char **argv) {
   bl_alternating(&tiled_datatype, &flags, raw_datatype, A1, A2, B1, B2);
   t_datatype2 = MPI_Wtime();
 
-  MPI_Aint aint, extent;
-  MPI_Aint basic_extent;
-  MPI_Type_get_extent(tiled_datatype, &aint, &extent);
-  MPI_Type_get_extent(raw_datatype, &aint, &basic_extent);
-
-  n = n / basic_extent;
-  assert(n > 0);
-
-  assert(A1 <= B1 && A2 <= B2);
-  assert(n % (B1 + B2) == 0);
-  auto num_blocks = (n / (B1 + B2)) * 2;
-  auto half_block = num_blocks / 2;
-  auto tiled_size = half_block * (A1 + A2) / extent;
+  int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
+  if (myid == 0) {
+    std::cout << "tiled size: " << tiled_size << "\n";
+  }
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);

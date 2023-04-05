@@ -55,18 +55,8 @@ int main(int argc, char **argv) {
   bl_block(&tiled_datatype, &flags, raw_datatype, A, B1, B2);
   t_datatype2 = MPI_Wtime();
 
-  MPI_Aint aint, extent;
-  MPI_Aint basic_extent;
-  MPI_Type_get_extent(tiled_datatype, &aint, &extent);
-  MPI_Type_get_extent(raw_datatype, &aint, &basic_extent);
+  int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
 
-  n = n / basic_extent;
-  assert(n > 0);
-
-  assert(A <= B1 && A <= B2);
-  assert(n % (B1 + B2) == 0);
-  auto num_blocks = (n / (B1 + B2)) * 2;
-  auto tiled_size = num_blocks * A / (B1 + B2);
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);

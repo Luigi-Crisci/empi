@@ -33,12 +33,8 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   // ------ PARAMETER SETUP -----------
-  pow_2 = atoi(argv[1]);
-  max_iter = atoi(argv[2]);
-
-  double mpi_time;
-  nBytes = pow(2, pow_2);
-  n = nBytes;
+  n = std::stoi(argv[1]);
+  max_iter = std::stoi(argv[2]);
 
   // Getting layout values
   int A = std::stoi(argv[3]);
@@ -47,6 +43,7 @@ int main(int argc, char **argv) {
   string datatype = argv[6];
   MPI_Datatype tiled_datatype;
   int flags;
+  double mpi_time;
 
   void *myarr, *arr;
   if (datatype == "basic") {
@@ -62,21 +59,13 @@ int main(int argc, char **argv) {
   bl_block(&tiled_datatype, &flags, raw_datatype, A, B1, B2);
   t_datatype2 = MPI_Wtime();
 
-  MPI_Aint lb, size, extent;
-  MPI_Aint basic_size, basic_extent;
-  MPI_Type_get_extent(tiled_datatype, &lb, &extent);
-  MPI_Type_get_true_extent(tiled_datatype, &lb, &size);
-  MPI_Type_get_extent(raw_datatype, &basic_size, &basic_extent);
+  int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
 
-  n = n / basic_extent;
-  assert(n > 0);
-
-  assert(A <= B1 && A <= B2);
-  assert(n % (B1 + B2) == 0);
-  auto num_blocks = (n / (B1 + B2)) * 2;
-  auto tiled_size = num_blocks * A / (B1 + B2);
   // if (myid == 0) {
+  //   std::cout << "N: " << n << "\n";
+  //   std::cout << "Basic extent: " << basic_extent << "\n";
   //   std::cout << "tiled size: " << tiled_size << "\n";
+  //   std::cout << "Datatype size: " << datatype_size << "\n";
   //   std::cout << "Extent: " << extent << "\n";
   //   std::cout << "Size: " << size << "\n";
   //   std::cout << "Total size: " << tiled_size * size << "\n";
@@ -89,10 +78,10 @@ int main(int argc, char **argv) {
     if (myid == 0) {
       MPI_Send(arr, tiled_size, tiled_datatype, 1, 0, MPI_COMM_WORLD);
       MPI_Recv(arr, tiled_size, tiled_datatype, 1, MPI_ANY_TAG, MPI_COMM_WORLD,
-              &status);
+               &status);
     } else { // Node rank 1
-      MPI_Recv(myarr, tiled_size, tiled_datatype, 0, MPI_ANY_TAG, MPI_COMM_WORLD,
-              &status);
+      MPI_Recv(myarr, tiled_size, tiled_datatype, 0, MPI_ANY_TAG,
+               MPI_COMM_WORLD, &status);
       MPI_Send(myarr, tiled_size, tiled_datatype, 0, 1, MPI_COMM_WORLD);
     }
   }
@@ -114,7 +103,7 @@ int main(int argc, char **argv) {
 
   MPI_Barrier(MPI_COMM_WORLD);
   t_end = MPI_Wtime();
-  if (myid == 0) 
+  if (myid == 0)
     mpi_time = (t_end - t_start) * SCALE;
 
   MPI_Barrier(MPI_COMM_WORLD);

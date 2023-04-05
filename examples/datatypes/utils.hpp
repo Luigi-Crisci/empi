@@ -4,7 +4,7 @@
 #include <cassert>
 #include <mpi.h>
 #include <string>
-
+#include <iostream>
 
 struct basic_struct {
 	int x;
@@ -13,6 +13,24 @@ struct basic_struct {
 };
 
 static MPI_Datatype basic_type = MPI_CHAR;
+
+int get_communication_size(int num_bytes, MPI_Datatype derived_datatype, MPI_Datatype raw_datatype){
+  MPI_Aint derived_datatype_extent, raw_datatype_extent, lb;
+  MPI_Type_get_extent(derived_datatype, &lb, &derived_datatype_extent);
+  MPI_Type_get_extent(raw_datatype, &lb, &raw_datatype_extent);
+  assert(num_bytes % raw_datatype_extent == 0);
+
+  num_bytes = num_bytes / raw_datatype_extent;
+  auto datatype_size = derived_datatype_extent / raw_datatype_extent;
+  assert(num_bytes > 0);
+  assert(num_bytes >= datatype_size && num_bytes % datatype_size == 0);
+    
+  std::cout << "Num elements: " << num_bytes << "\n";
+  std::cout << "Datatype extent: " << derived_datatype_extent << "\n";
+  std::cout << "Raw extent: " << raw_datatype_extent << "\n";
+ 
+  return num_bytes / datatype_size; 
+}
 
 void build_struct_mpi_type(MPI_Datatype* t){
     int blocklengths[3] = {1, 1, 1};

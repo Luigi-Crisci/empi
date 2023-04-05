@@ -58,15 +58,16 @@ int main(int argc, char **argv) {
   bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
   t_datatype2 = MPI_Wtime();
 
-  MPI_Aint basic_size, basic_extent;
-  MPI_Type_get_extent(raw_datatype, &basic_size, &basic_extent);
-
-  int tiled_size = (n / basic_extent) * A / B / B;  
-  
+  int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
 
   // if (myid == 0) {
+  //   std::cout << "N: " << n << "\n";
+  //   std::cout << "Basic extent: " << basic_extent << "\n";
   //   std::cout << "tiled size: " << tiled_size << "\n";
-  // }
+  //   std::cout << "Datatype size: " << datatype_size << "\n";
+  //   std::cout << "Extent: " << extent << "\n";
+  //   std::cout << "Required memory: " << tiled_size * extent << "\n";
+  // }  
 
   // Warmup
   MPI_Barrier(MPI_COMM_WORLD);

@@ -53,13 +53,7 @@ int main(int argc, char **argv) {
   bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
   t_datatype2 = MPI_Wtime();
 
-  MPI_Aint aint, extent, lb, size;
-  MPI_Aint basic_extent;
-  MPI_Type_get_extent(tiled_datatype, &aint, &extent);
-  MPI_Type_get_true_extent(tiled_datatype, &lb, &size);
-  MPI_Type_get_extent(raw_datatype, &aint, &basic_extent);
-
-  int tiled_size = (n / basic_extent) * A / B / B;  
+  int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
 
   // if (myid == 0) {
     
