@@ -36,7 +36,6 @@ set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts_traits.hpp
 	)
 
-
 add_library(empi INTERFACE ${header_files})
 
 if(ENABLE_UNCHECKED_FUNCTION)

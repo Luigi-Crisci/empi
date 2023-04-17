@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     auto half_block = num_blocks / 2;
     auto tiled_size = half_block * (A1 + A2);
     std::array sizes{A1, A2};
-    std::array strides{B, B};
+    std::size_t strides = B;
 
     std::vector<type> myarr(n);
 
