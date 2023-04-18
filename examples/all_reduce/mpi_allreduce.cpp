@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include <vector>
 
 using namespace std;
 using value_type = int;
