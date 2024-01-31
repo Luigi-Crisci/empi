@@ -47,8 +47,8 @@ int main(int argc, char **argv) {
     empi::stdex::dextents<size_t, 1> ext(tiled_size);
     auto view = empi::layouts::block_layout::build(myarr, 
                                                   ext,
-                                                  std::span(&A,1),
-                                                  std::span(&B,1));
+                                                  A,
+                                                  B);
     t_view2 = MPI_Wtime();
 
     std::vector<type> res(tiled_size);

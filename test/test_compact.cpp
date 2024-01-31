@@ -57,8 +57,8 @@ TEST_CASE("Compact block tiled layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(20);
 	std::iota(v.begin(),v.end(),0);
 
-	std::vector<size_t> blocks({4});
-	std::vector<size_t> strides({5});
+	size_t blocks{4};
+	size_t strides{5};
 	stdex::extents<size_t,16> ext;
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
@@ -74,8 +74,8 @@ TEST_CASE("Compact block tiled layout", "[mdspan|layouts|compact]"){
 // 	std::vector<int> v(32);
 // 	std::iota(v.begin(),v.end(),0);
 
-// 	std::vector<size_t> blocks({2, 4});
-// 	std::vector<size_t> strides({4, 4});
+// 	size_t blocks{2,4});
+// 	size_t strides{4,4});
 // 	constexpr auto size = 24;
 // 	stdex::extents<size_t,size> ext;
 // 	auto view = empi::layouts::block_layout::build(v, ext, 

@@ -55,13 +55,15 @@ static constexpr inline auto get_underlying_pointer(const stdex::mdspan<T, Exten
 													bool compact = false){
   if (compact){
 	// TODO: temporary workaround before refactoring compact functions into layout's classes
-	if constexpr (std::is_same_v<Layout, layouts::block_layout>)
+	if constexpr (details::is_block_layout<Layout>)
 		return empi::layouts::block_layout::compact(buf);
 	else
 		return empi::layouts::compact(buf);
   } else {
 	using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-	return std::unique_ptr<element_type,details::conditional_deleter<element_type>>(buf.data_handle());
+	if constexpr (layouts::has_trivial_accessor<Accessor>) //Workaround because otherwise unique_ptr complains
+														   //about mismatching types with struct accessors
+		return std::unique_ptr<element_type,details::conditional_deleter<element_type>>(buf.data_handle());
   }
 }
 

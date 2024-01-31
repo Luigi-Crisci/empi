@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
     assert(n % (B1 + B2) == 0);
     auto num_blocks = (n / (B1 + B2)) * 2;
     auto tiled_size = num_blocks * A;
-    std::array sizes{A, A};
+    std::size_t sizes = A;
     std::array strides{B1, B2};
 
     std::vector<type> myarr(n);

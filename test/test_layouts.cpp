@@ -89,8 +89,8 @@ TEST_CASE("Create tiled block layout", "[mdspan|layouts|compact]"){
 	std::iota(v.begin(),v.end(),0);
 
 	stdex::dextents<size_t,1> ext(10 / 5 * 3);
-	std::vector<size_t> blocks({3});
-	std::vector<size_t> strides({5});
+	size_t blocks{3};
+	size_t strides{5};
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
 													    std::experimental::default_accessor<int>());
@@ -104,11 +104,11 @@ TEST_CASE("Create blocked block layout", "[mdspan|layouts|compact]"){
 	std::iota(v.begin(),v.end(),0);
 
 	stdex::extents<size_t,20> ext;
-	std::vector<size_t> blocks({2,2});
-	std::vector<size_t> strides({3,5});
+	size_t blocks{2};
+	std::array<size_t,2> strides({3,5});
 	auto view = empi::layouts::block_layout::build(v, ext, 
-														blocks,strides,
-													    std::experimental::default_accessor<int>());
+														blocks,
+														strides);
 	REQUIRE(view[0] == 0);
 	REQUIRE(view[1] == 1);
 	REQUIRE(view[2] == 3);
@@ -126,8 +126,8 @@ TEST_CASE("Create bucket block layout", "[mdspan|layouts|compact]"){
 	std::iota(v.begin(),v.end(),0);
 
 	stdex::extents<size_t,20> ext;
-	std::vector<size_t> blocks({4,3});
-	std::vector<size_t> strides({5,5});
+	std::array<size_t,2> blocks({4,3});
+	size_t strides{5};
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
 													    std::experimental::default_accessor<int>());
@@ -152,8 +152,8 @@ TEST_CASE("Create alternating block layout", "[mdspan|layouts|compact]"){
 	std::iota(v.begin(),v.end(),0);
 
 	stdex::extents<size_t,20> ext;
-	std::vector<size_t> blocks({4,3});
-	std::vector<size_t> strides({5,6});
+	std::array<size_t,2> blocks({4,3});
+	std::array<size_t,2> strides({5,6});
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
 													    std::experimental::default_accessor<int>());
