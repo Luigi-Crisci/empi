@@ -45,7 +45,6 @@ int main(int argc, char **argv) {
 
   for(auto iter = 0; iter < max_iter; iter++){
     MPI_Allreduce(arr.data(), dest.data(), n, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    iter++;
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -69,3 +68,24 @@ int main(int argc, char **argv) {
   return 0;
 } // end main
 
+double Mean(double a[], int n) {
+  double sum = 0.0;
+  for (int i = 0; i < n; i++)
+    sum += a[i];
+
+  return (sum / (double)n);
+}
+
+double Median(double a[], int n) {
+  sort(a, a + n);
+  if (n % 2 != 0)
+    return a[n / 2];
+
+  return (a[(n - 1) / 2] + a[n / 2]) / 2.0;
+}
+
+void Print_times(double a[], int n) {
+  cout << "\n------------------------------------";
+  for (int t = 0; t < n; t++)
+    cout << "\n " << a[t];
+}
