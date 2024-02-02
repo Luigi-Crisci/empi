@@ -1,11 +1,11 @@
 #ifndef TEST_UTILS
 #define TEST_UTILS
 
-// namespace std::experimental{
+// namespaceKokkos{
 		
 // 	}
 
-// namespace stdex = std::experimental;
+// namespace stdex =Kokkos;
 
 struct trivial_struct {
 	int x;

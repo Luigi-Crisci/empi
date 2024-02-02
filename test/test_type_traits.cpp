@@ -7,10 +7,10 @@
 #include <empi/layouts_traits.hpp>
 #include <empi/defines.hpp>
 
-namespace stdex = std::experimental;
+namespace stdex =Kokkos;
 
 TEST_CASE("is_mdspan", "[type_traits]") {
-	using namespace std::experimental;
+	using namespaceKokkos;
 	using extent_type = dextents<int, 1>;
 	
 	REQUIRE_FALSE(empi::details::is_mdspan<int>);
@@ -24,25 +24,25 @@ TEST_CASE("is_mdspan", "[type_traits]") {
 
 
 TEST_CASE("is_contiguous_layout", "[type_traits][layouts]") {
-	using namespace std::experimental;
+	using namespaceKokkos;
 
-	REQUIRE(empi::layouts::is_contiguous_layout<stdex::layout_right>);	
-	REQUIRE(empi::layouts::is_contiguous_layout<stdex::layout_left>);	
+	REQUIRE(empi::layouts::is_contiguous_layout<Kokkos::layout_right>);	
+	REQUIRE(empi::layouts::is_contiguous_layout<Kokkos::layout_left>);	
 	REQUIRE(empi::layouts::is_contiguous_layout<empi::layouts::contiguous_layout::contiguous_layout_impl>);	
 
-	REQUIRE_FALSE(empi::layouts::is_contiguous_layout<stdex::layout_stride>);
+	REQUIRE_FALSE(empi::layouts::is_contiguous_layout<Kokkos::layout_stride>);
 	REQUIRE_FALSE(empi::layouts::is_contiguous_layout<int>);
 }
 
 TEST_CASE("has_trivial_accessor", "[type_traits][layouts]") {
-	using namespace std::experimental;
+	using namespaceKokkos;
 	struct S{
 		int x;
 		int y;
 		float z;
 	};
 
-	REQUIRE(empi::layouts::has_trivial_accessor<stdex::default_accessor<int>>);	
+	REQUIRE(empi::layouts::has_trivial_accessor<Kokkos::default_accessor<int>>);	
 	REQUIRE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<int>>);	
 	REQUIRE(empi::layouts::has_trivial_accessor<empi::layouts::struct_layout::struct_accessor<S>>);	
 	

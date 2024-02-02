@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
     t_view1 = MPI_Wtime();
     auto view = empi::layouts::block_layout::build(
-        myarr, empi::stdex::dextents<size_t, 1>(view_size), A,
+        myarr, Kokkos::dextents<size_t, 1>(view_size), A,
         B);
     t_view2 = MPI_Wtime();
 

@@ -2,13 +2,13 @@
 #define INCLUDE_EMPI_LAYOUTS
 
 #include <cassert>
-#include <cmath>
-#include <functional>
 #include <memory>
 #include <utility>
 
 #include <empi/datatype.hpp>
 #include <empi/defines.hpp>
+
+
 
 namespace empi::layouts {
 
@@ -21,7 +21,7 @@ struct column_layout {
                                   Extents<K, Idx...> extents, size_t col) {
     return column_layout::build(
         view, extents, col,
-        stdex::default_accessor<std::ranges::range_value_t<decltype(view)>>());
+        Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>());
   }
 
   // Hardwritten for 2D layouts, will change later...
@@ -40,15 +40,15 @@ struct column_layout {
 
     using T = std::ranges::range_value_t<decltype(view)>;
 
-    return stdex::mdspan<T, extent_type, column_layout_impl, Accessor>(
+    return Kokkos::mdspan<T, extent_type, column_layout_impl, Accessor>(
         std::ranges::data(view) + col, column_map, acc);
   }
 
   struct column_layout_impl {
 
     template <typename Extents>
-    struct mapping : stdex::layout_stride::mapping<Extents> {
-      using base = stdex::layout_stride::mapping<Extents>;
+    struct mapping : Kokkos::layout_stride::mapping<Extents> {
+      using base = Kokkos::layout_stride::mapping<Extents>;
       using base::base;
     };
   };
@@ -58,29 +58,29 @@ struct contiguous_layout {
   // Wraps data into plain, 1D mdspan.
   // Used for implicit conversions
   [[nodiscard]] static auto build(std::ranges::forward_range auto &&view) {
-    using extent_type = stdex::dextents<std::size_t, 1>;
+    using extent_type = Kokkos::extents<std::size_t, Kokkos::dynamic_extent>;
     extent_type extents(std::ranges::size(view));
     using T = std::ranges::range_value_t<decltype(view)>;
-    return std::move(stdex::mdspan<T, extent_type, contiguous_layout_impl>(
+    return std::move(Kokkos::mdspan<T, extent_type, contiguous_layout_impl>(
         std::ranges::data(view), extents));
   }
 
   template <typename Accessor>
   [[nodiscard]] static auto build(std::ranges::forward_range auto &&view,
                                   const Accessor &acc) {
-    using extent_type = stdex::dextents<std::size_t, 1>;
+    using extent_type = Kokkos::dextents<std::size_t, 1>;
     extent_type extents(std::ranges::size(view));
     using T = std::ranges::range_value_t<decltype(view)>;
     return std::move(
-        stdex::mdspan<T, extent_type, contiguous_layout_impl, Accessor>(
+        Kokkos::mdspan<T, extent_type, contiguous_layout_impl, Accessor>(
             std::ranges::data(view),
             contiguous_layout_impl::mapping<extent_type>(extents), acc));
   }
 
   struct contiguous_layout_impl {
     template <typename Extents>
-    struct mapping : stdex::layout_right::mapping<Extents> {
-      using base = stdex::layout_right::mapping<Extents>;
+    struct mapping : Kokkos::layout_right::mapping<Extents> {
+      using base = Kokkos::layout_right::mapping<Extents>;
       using base::base;
     };
   };
@@ -97,7 +97,7 @@ struct struct_layout {
                 std::remove_cv_t<decltype(default_access<Element_type>)>>
   struct struct_accessor {
 
-    using offset_policy = stdex::default_accessor<Element_type>;
+    using offset_policy = Kokkos::default_accessor<Element_type>;
     using element_type =
         typename details::function_traits<Callable>::result_type;
     using reference = std::conditional_t<details::is_tuple<element_type>,
@@ -131,8 +131,8 @@ struct tiled_layout {
   build(std::ranges::forward_range auto &&view, const size_t row,
         const size_t col) {
     return tiled_layout::build(
-        view, stdex::dextents<size_t, 2>(row, col),
-        stdex::default_accessor<std::ranges::range_value_t<decltype(view)>>());
+        view, Kokkos::dextents<size_t, 2>(row, col),
+        Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>());
   }
 
   // Hardwritten for 2D layouts, will change later...
@@ -148,7 +148,7 @@ struct tiled_layout {
 
     tiled_layout_impl::mapping<extent_type> tiled_mapping(extents);
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-    return stdex::mdspan<T, extent_type, tiled_layout_impl, Accessor>(
+    return Kokkos::mdspan<T, extent_type, tiled_layout_impl, Accessor>(
         std::ranges::data(view), tiled_mapping, acc);
   }
 
@@ -286,7 +286,7 @@ struct block_layout {
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
     return build(view, extents, std::forward<Size>(blocks),
                  std::forward<Stride>(strides),
-                 std::experimental::default_accessor<view_data_type>());
+                Kokkos::default_accessor<view_data_type>());
   }
 
   // Hardwritten for 1D layouts, will change later...
@@ -295,7 +295,7 @@ struct block_layout {
   [[nodiscard]] static constexpr auto
   build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
         std::size_t block, std::size_t stride,
-        const Accessor &acc = stdex::default_accessor<
+        const Accessor &acc = Kokkos::default_accessor<
             std::ranges::range_value_t<decltype(view)>>()) {
     // TODO: Check sizes against view
     // TODO: Tiled layout should work on every dimension
@@ -305,7 +305,7 @@ struct block_layout {
     tiled_block_layout::mapping<extent_type> block_mapping(extents, block,
                                                            stride);
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-    return stdex::mdspan<T, extent_type,
+    return Kokkos::mdspan<T, extent_type,
                          typename decltype(block_mapping)::layout_type,
                          Accessor>(std::ranges::data(view), block_mapping, acc);
   }
@@ -316,7 +316,7 @@ struct block_layout {
   [[nodiscard]] static constexpr auto
   build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
         const std::span<std::size_t, 2> &blocks, std::size_t stride,
-        const Accessor &acc = stdex::default_accessor<
+        const Accessor &acc = Kokkos::default_accessor<
             std::ranges::range_value_t<decltype(view)>>()) {
     // TODO: Check sizes against view
     // TODO: Tiled layout should work on every dimension
@@ -326,7 +326,7 @@ struct block_layout {
     bucket_block_layout::mapping<extent_type> block_mapping(extents, blocks,
                                                             stride);
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-    return stdex::mdspan<T, extent_type,
+    return Kokkos::mdspan<T, extent_type,
                          typename decltype(block_mapping)::layout_type,
                          Accessor>(std::ranges::data(view), block_mapping, acc);
   }
@@ -337,7 +337,7 @@ struct block_layout {
   [[nodiscard]] static constexpr auto
   build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
         std::size_t block, const std::span<std::size_t, 2> &strides,
-        const Accessor &acc = stdex::default_accessor<
+        const Accessor &acc = Kokkos::default_accessor<
             std::ranges::range_value_t<decltype(view)>>()) {
     // TODO: Check sizes against view
     // TODO: Tiled layout should work on every dimension
@@ -347,7 +347,7 @@ struct block_layout {
     block_block_layout::mapping<extent_type> block_mapping(extents, block,
                                                            strides);
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-    return stdex::mdspan<T, extent_type,
+    return Kokkos::mdspan<T, extent_type,
                          typename decltype(block_mapping)::layout_type,
                          Accessor>(std::ranges::data(view), block_mapping, acc);
   }
@@ -359,7 +359,7 @@ struct block_layout {
   build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
         const std::span<std::size_t, 2> &block,
         const std::span<std::size_t, 2> &stride,
-        const Accessor &acc = stdex::default_accessor<
+        const Accessor &acc = Kokkos::default_accessor<
             std::ranges::range_value_t<decltype(view)>>()) {
     // TODO: Check sizes against view
     // TODO: Tiled layout should work on every dimension
@@ -369,7 +369,7 @@ struct block_layout {
     alternating_block_layout::mapping<extent_type> block_mapping(extents, block,
                                                                  stride);
     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-    return stdex::mdspan<T, extent_type,
+    return Kokkos::mdspan<T, extent_type,
                          typename decltype(block_mapping)::layout_type,
                          Accessor>(std::ranges::data(view), block_mapping, acc);
   }
@@ -405,7 +405,7 @@ struct block_layout {
       constexpr const extents_type &extents() const { return _extents; }
 
       constexpr size_type required_span_size() const noexcept {
-        // stdex::extents<int, 1> x;
+        // Kokkos::extents<int, 1> x;
         return _extents.extent(0);
       }
 
@@ -476,7 +476,7 @@ struct block_layout {
       constexpr const extents_type &extents() const { return _extents; }
 
       constexpr size_type required_span_size() const noexcept {
-        // stdex::extents<int, 1> x;
+        // Kokkos::extents<int, 1> x;
         return _extents.extent(0);
       }
 
@@ -558,7 +558,7 @@ struct block_layout {
       constexpr const extents_type &extents() const { return _extents; }
 
       constexpr size_type required_span_size() const noexcept {
-        // stdex::extents<int, 1> x;
+        // Kokkos::extents<int, 1> x;
         return _extents.extent(0);
       }
 
@@ -707,7 +707,7 @@ struct block_layout {
             typename Layout, typename Accessor, typename idx_type,
             size_t... idx>
   static constexpr auto
-  compact(const stdex::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor>
+  compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor>
               &view) {
     using element_type = std::remove_cvref_t<typename Accessor::element_type>;
 
@@ -762,7 +762,7 @@ namespace empi::details {
 //     // TODO: Tiled layout should work on every dimension
 //     using view_data_type = std::ranges::range_value_t<decltype(view)>;
 //     return build(view, extents, blocks, strides,
-//                  std::experimental::default_accessor<view_data_type>());
+//                 Kokkos::default_accessor<view_data_type>());
 //   }
 
 //   // Hardwritten for 1D layouts, will change later...
@@ -772,7 +772,7 @@ namespace empi::details {
 //   build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
 //         std::ranges::forward_range auto &&blocks,
 //         std::ranges::forward_range auto &&strides,
-//         const Accessor &acc = stdex::default_accessor<
+//         const Accessor &acc = Kokkos::default_accessor<
 //             std::ranges::range_value_t<decltype(view)>>()) {
 //     // TODO: Check sizes against view
 //     // TODO: Tiled layout should work on every dimension
@@ -781,7 +781,7 @@ namespace empi::details {
 
 //     mapping<extent_type> block_mapping(extents, blocks, strides);
 //     using view_data_type = std::ranges::range_value_t<decltype(view)>;
-//     return stdex::mdspan<T, extent_type, block_layout, Accessor>(
+//     return Kokkos::mdspan<T, extent_type, block_layout, Accessor>(
 //         std::ranges::data(view), block_mapping, acc);
 //   }
 
@@ -791,7 +791,7 @@ namespace empi::details {
 //   template <typename T, template <typename, size_t...> typename Extents,
 //             typename Accessor, typename idx_type, size_t... idx>
 //   static constexpr auto
-//   compact(const stdex::mdspan<T, Extents<idx_type, idx...>, block_layout,
+//   compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, block_layout,
 //                               Accessor> &view) {
 //     using element_type = std::remove_cvref_t<typename
 //     Accessor::element_type>;
@@ -854,7 +854,7 @@ namespace empi::details {
 //     constexpr const extents_type &extents() const { return _extents; }
 
 //     constexpr size_type required_span_size() const noexcept {
-//       // stdex::extents<int, 1> x;
+//       // Kokkos::extents<int, 1> x;
 //       return _extents.extent(0);
 //     }
 

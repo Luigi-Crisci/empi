@@ -7,7 +7,6 @@
 
 #include <empi/type_traits.hpp>
 #include <empi/defines.hpp>
-#include <iostream>
 
 namespace empi::details{
 
@@ -16,15 +15,15 @@ namespace empi::details{
   struct conditional_deleter{
     
     constexpr conditional_deleter() noexcept = default;
-    constexpr explicit conditional_deleter(bool owving) : _is_owning_ptr(owving) {}
+    constexpr explicit conditional_deleter(bool owving) : m_is_owning_ptr(owving) {}
 
     template<typename Up>
     requires std::is_convertible_v<Up*, T*>
     constexpr explicit conditional_deleter(const conditional_deleter<Up>& cd) noexcept {}
 
-    void operator()(T* _ptr) const {
-      if(_is_owning_ptr){
-        delete _ptr;
+    void operator()(T* ptr) const {
+      if(m_is_owning_ptr){
+        delete ptr;
 	  }
       #ifdef TEST
       _ptr = nullptr;
@@ -32,14 +31,14 @@ namespace empi::details{
     }
 
     private:
-      bool _is_owning_ptr = false;
+      bool m_is_owning_ptr = false;
   };
 
     template<typename T>
     struct conditional_deleter<T[]>{
     
     constexpr conditional_deleter() noexcept = default;
-    constexpr explicit conditional_deleter(bool owving) : _is_owning_ptr(owving) {}
+    constexpr explicit conditional_deleter(bool owving) : m_is_owning_ptr(owving) {}
 
     template<typename Up>
     requires std::is_convertible_v<Up(*)[], T(*)[]>
@@ -47,16 +46,17 @@ namespace empi::details{
 
     template<typename Up>
     requires std::is_convertible_v<Up(*)[], T(*)[]>
-    void operator()(Up* _ptr) const {
-      if(_is_owning_ptr)
-        delete[] _ptr;
+    void operator()(Up* ptr) const {
+      if(m_is_owning_ptr) {
+        delete[] ptr;
+}
       #ifdef TEST
       _ptr = nullptr;
       #endif
     }
 
     private:
-      bool _is_owning_ptr = false;
+      bool m_is_owning_ptr = false;
   };
 
 
@@ -66,19 +66,22 @@ namespace empi::details{
 			return std::abs(static_cast<long long>(a) - static_cast<long long>(b));
 		}
 
-		template<mpi_function f> 
+		template<mpi_function F> 
 		void checktag(int tag, int maxtag){
-			if constexpr (details::is_all<f>){
-				if(tag > maxtag)
+			if constexpr (details::is_all<F>){
+				if(tag > maxtag) {
 					throw std::runtime_error("Incorrect tag entered in send function");
+}
 			}
-			else if constexpr (details::is_send<f>){
-				if(tag > maxtag || tag == -1)
+			else if constexpr (details::is_send<F>){
+				if(tag > maxtag || tag == -1) {
 					throw std::runtime_error("Incorrect tag entered in send function");
+}
 			}
-			else if constexpr (details::is_recv<f>){
-				if(tag > maxtag || tag < -1)
+			else if constexpr (details::is_recv<F>){
+				if(tag > maxtag || tag < -1) {
 					throw std::runtime_error("Incorrect tag entered in recv function");
+}
 			}
 		}
 
@@ -128,10 +131,10 @@ namespace empi::details{
   __VA_OPT__(,FOR_EACH_AGAIN PARENS (macro, _struct, __VA_ARGS__))
 #define FOR_EACH_AGAIN() FOR_EACH_HELPER
 
-#define F(_struct, field) _struct.field
+#define FUN(_struct, field) _struct.field
 
 #define STRUCT_FIELDS(_struct, ...) \
-    [](_struct& s) -> auto {return std::tuple{FOR_EACH(F,s,__VA_ARGS__)};}
+    [](_struct& s) -> auto {return std::tuple{FOR_EACH(FUN,s,__VA_ARGS__)};}
 
 //////////////////////////////////
 		

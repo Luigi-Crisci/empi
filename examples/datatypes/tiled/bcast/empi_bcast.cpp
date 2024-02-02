@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     // std::cout << "View size: " << view_size << "\n";
     std::vector<type> myarr(n);
     t_view1 = MPI_Wtime();
-    empi::stdex::dextents<size_t, 1> ext(view_size);
+    Kokkos::dextents<size_t, 1> ext(view_size);
     auto view = empi::layouts::block_layout::build(myarr, ext, A,
                                                    B);
     t_view2 = MPI_Wtime();

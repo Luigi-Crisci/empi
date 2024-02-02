@@ -33,8 +33,7 @@
 #endif
 
 namespace empi{
-	
-	namespace stdex = std::experimental; 
+
 
 constexpr int NOSIZE = 0;
 

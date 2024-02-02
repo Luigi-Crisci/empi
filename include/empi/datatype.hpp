@@ -5,13 +5,14 @@
 #ifndef EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 #define EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 
-#include <empi/type_traits.hpp>
-#include <memory.h>
-#include <type_traits>
+//@HEADER
+#include <mdspan/mdspan.hpp>
+#include "experimental/__p0009_bits/extents.hpp" // for dextents
 
-#include <experimental/mdspan>
+#include <empi/type_traits.hpp>
 #include <empi/type_traits.hpp>
 #include <empi/utils.hpp>
+#include <memory>
 
 
 namespace empi::details {
@@ -40,10 +41,11 @@ MAKE_TYPE_CONVERSION(double, MPI_DOUBLE)
 template<typename T>
 struct mpi_type {
   static MPI_Datatype get_type() {
-	if constexpr (has_data<T>)
+	if constexpr (has_data<T>) {
 	  return mpi_type_impl<typename T::value_type>::get_type();
-	else
+	} else {
 	  return mpi_type_impl<std::remove_pointer_t<T>>::get_type();
+}
   }
 };
 

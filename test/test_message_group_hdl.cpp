@@ -6,7 +6,7 @@
 #include <empi/empi.hpp>
 #include <empi/utils.hpp>
 
-namespace stdex = std::experimental;
+namespace stdex =Kokkos;
 
 TEST_CASE("Send and receive a view with no compile-time parameters", "[mgh][layouts]"){
 	auto& ctx = empi::get_context();
@@ -18,7 +18,7 @@ TEST_CASE("Send and receive a view with no compile-time parameters", "[mgh][layo
 
 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
 		if(mg->rank() == 0){
-			stdex::mdspan<int, stdex::dextents<int, 1>> view(v.data(),10);
+			Kokkos::mdspan<int, Kokkos::dextents<int, 1>> view(v.data(),10);
 			mgh.send(view, 1, 10, empi::Tag{1});
 		}
 		else {
@@ -43,7 +43,7 @@ TEST_CASE("Send and receive a column of a matrix", "[mgh][layouts]"){
 
 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
 		if(mg->rank() == 0){
-			auto view = empi::layouts::column_layout::build(v, stdex::dextents<int, 2>(4,4), 3);
+			auto view = empi::layouts::column_layout::build(v, Kokkos::dextents<int, 2>(4,4), 3);
 			mgh.send(view, 1, 4, empi::Tag{1});
 		}
 		else {
@@ -170,7 +170,7 @@ TEST_CASE("Send and receive a column of a subest of fields of a struct", "[mgh][
 
 	mg->run([&](empi::MessageGroupHandler<float>& mgh){
 		if(mg->rank() == 0){
-			stdex::extents<size_t, 6,6> ext;
+			Kokkos::extents<size_t, 6,6> ext;
 			constexpr int col = 0;
 			auto acc = empi::layouts::make_struct_accessor<trivial_struct>(STRUCT_FIELDS(trivial_struct,x,z));
 			auto view = empi::layouts::column_layout::build(v, ext, col,acc);
@@ -382,7 +382,7 @@ TEST_CASE("Allgather column view", "[mgh]"){
 	std::vector<int> res_vector;
 	res_vector.resize(message_size * mg->size());
 
-	auto ext = std::experimental::dextents<size_t, 2>(6,6);
+	auto ext =Kokkos::dextents<size_t, 2>(6,6);
 	auto view = empi::layouts::column_layout::build(v, ext, 3);
 
 	// std::cout << view.size() << '\n';
@@ -421,7 +421,7 @@ TEST_CASE("Allgather block view", "[mgh]"){
 	// }
 
 	auto view = empi::layouts::block_layout::build(v, 
-											 stdex::dextents<size_t, 1>(message_size),
+											 Kokkos::dextents<size_t, 1>(message_size),
 											 A,B);
 
 	// auto ptr = empi::layouts::block_layout::compact(view);

@@ -14,26 +14,26 @@
 
 namespace empi::details {
 
-template<typename T, T v1, T v2>
+template<typename T, T V1, T V2>
 struct is_greater {
-  static constexpr bool value = v1 > v2;
+  static constexpr bool value = V1 > V2;
 };
 
-template<typename T, T v1, T v2>
+template<typename T, T V1, T V2>
 struct is_same {
-  static constexpr bool value = v1 == v2;
+  static constexpr bool value = V1 == V2;
 };
 
-template<std::size_t size>
+template<std::size_t Size>
 concept has_size = requires {
-  size > 0;
+  Size > 0;
 };
 
 
-template<typename T, T v1, T v2>
-constexpr bool is_greater_v = is_greater<T,v1,v2>::value;
-template<typename T, T v1, T v2>
-constexpr bool is_same_v = is_same<T,v1,v2>::value;
+template<typename T, T V1, T V2>
+constexpr bool is_greater_v = is_greater<T,V1,V2>::value;
+template<typename T, T V1, T V2>
+constexpr bool is_same_v = is_same<T,V1,V2>::value;
 
 
 
@@ -53,10 +53,10 @@ struct function_traits<ReturnType(ClassType::*)(Args...) const>
 
   typedef ReturnType result_type;
 
-  template <std::size_t i>
+  template <std::size_t I>
   struct arg
   {
-	typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
+	typedef typename std::tuple_element<I, std::tuple<Args...>>::type type;
 	// the i-th argument is equivalent to the i-th tuple element of a tuple
 	// composed of those arguments.
   };
@@ -108,17 +108,18 @@ template<typename T, typename K>
 concept is_valid_pointer = std::is_same_v<T,remove_all_t<K>>;
 
 
-template<template<typename index_type,size_t ...Args> typename T,typename index_type, size_t FirstEntryFrom, size_t ...TupleTypesResult, size_t ...TupleTypesFrom>
-constexpr auto remove_last_impl(T<index_type,TupleTypesResult...> res, T<index_type, FirstEntryFrom, TupleTypesFrom...> src){
-    if constexpr(sizeof...(TupleTypesFrom) > 0)
-        return remove_last_impl(T<index_type, TupleTypesResult..., FirstEntryFrom>(), T<index_type, TupleTypesFrom...>());
-    else 
+template<template<typename IndexType, size_t ...Args> typename T,typename IndexType, size_t FirstEntryFrom, size_t ...TupleTypesResult, size_t ...TupleTypesFrom>
+constexpr auto remove_last_impl(T<IndexType,TupleTypesResult...> res, T<IndexType, FirstEntryFrom, TupleTypesFrom...> src){
+    if constexpr(sizeof...(TupleTypesFrom) > 0) {
+        return remove_last_impl(T<IndexType, TupleTypesResult..., FirstEntryFrom>(), T<IndexType, TupleTypesFrom...>());
+    } else { 
         return res;
 }
+}
 
-template<template<typename index_type,size_t ...Args> typename T, typename index_type, size_t ...Args>
-constexpr auto remove_last(T<index_type,Args...> in){
-    return remove_last_impl(T<index_type>(), in);
+template<template<typename IndexType,size_t ...Args> typename T, typename IndexType, size_t ...Args>
+constexpr auto remove_last(T<IndexType,Args...> in){
+    return remove_last_impl(T<IndexType>(), in);
 }
 
 template<typename A, typename B>
@@ -144,7 +145,7 @@ template<typename T>
 struct is_mdspan_impl : std::false_type{};
 
 template<typename T, typename Extents, typename Layout, typename Accessor>
-struct is_mdspan_impl<std::experimental::mdspan<T,Extents,Layout,Accessor>> : std::true_type{};
+struct is_mdspan_impl<Kokkos::mdspan<T,Extents,Layout,Accessor>> : std::true_type{};
 
 template<typename T>
 static constexpr bool is_mdspan_v = is_mdspan_impl<T>::value;
@@ -201,8 +202,8 @@ template<typename T>
 using get_true_type_t = typename get_true_type<remove_all_t<T>>::type;
 
 //////////////// Typed range //////////////
-template<typename Range,typename type>
-concept typed_range = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, type>; 
+template<typename Range,typename Type>
+concept typed_range = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, Type>; 
 
 } // namespace empi
 

@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     auto tiled_size = n / B * A;
 
     t_view1 = MPI_Wtime();
-    empi::stdex::dextents<size_t, 1> ext(tiled_size);
+    Kokkos::dextents<size_t, 1> ext(tiled_size);
     auto view = empi::layouts::block_layout::build(myarr, 
                                                   ext,
                                                   A,

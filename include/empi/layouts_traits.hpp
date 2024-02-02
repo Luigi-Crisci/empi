@@ -8,8 +8,8 @@ namespace empi::layouts{
 
 template<typename Layout>
 concept is_contiguous_layout = std::is_same_v<Layout, contiguous_layout::contiguous_layout_impl> || 
-							   std::is_same_v<Layout, stdex::layout_right> || 
-							   std::is_same_v<Layout, stdex::layout_left>;
+							   std::is_same_v<Layout, Kokkos::layout_right> || 
+							   std::is_same_v<Layout, Kokkos::layout_left>;
 
 template<typename AccessPolicy>
 concept has_trivial_accessor = std::is_same_v<details::remove_all_t<typename AccessPolicy::data_handle_type>, 

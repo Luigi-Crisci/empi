@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     std::vector<type> myarr(n);
 
     t_view1 = MPI_Wtime();
-    empi::stdex::dextents<size_t, 1> ext(tiled_size);
+    Kokkos::dextents<size_t, 1> ext(tiled_size);
     auto view = empi::layouts::block_layout::build(myarr, ext, sizes, strides);
     t_view2 = MPI_Wtime();
 

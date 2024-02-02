@@ -5,11 +5,11 @@
 
 #include <empi/empi.hpp>
 
-namespace stdex = std::experimental;
+namespace stdex =Kokkos;
 
 template<typename T, class Extents, class Layout>
 requires (Extents::rank() == 1)
-void print(const stdex::mdspan<T, Extents, Layout>& view){
+void print(const Kokkos::mdspan<T, Extents, Layout>& view){
 	std::cout <<"\t\t";
 	for(int i=0; i < view.extent(0); ++i){
 			std::cout << view[i] << ", ";
@@ -18,7 +18,7 @@ void print(const stdex::mdspan<T, Extents, Layout>& view){
 
 template<typename T, class Extents>
 requires (Extents::rank() == 2)
-void print(const stdex::mdspan<T, Extents>& view){
+void print(const Kokkos::mdspan<T, Extents>& view){
 	for(int i=0; i < view.extent(0); ++i){
 		if(i != 0) std::cout << "\n";
 			std::cout <<"\t";
@@ -32,8 +32,8 @@ TEST_CASE("Create column mdspan", "[column_layout]") {
 	std::vector<int> v(10);
 	std::iota(v.begin(),v.end(),0);
 
-	stdex::extents<size_t,5,2> ext;
-	stdex::mdspan<int, decltype(ext)> tmp(v.data(),ext); 
+	Kokkos::extents<size_t,5,2> ext;
+	Kokkos::mdspan<int, decltype(ext)> tmp(v.data(),ext); 
 	auto view = empi::layouts::column_layout::build(v, ext, 1);
 
 	REQUIRE(decltype(view)::rank() == 1);
@@ -45,9 +45,9 @@ TEST_CASE("Create column mdspan", "[column_layout]") {
 
 
 TEST_CASE("Check extents type traits", "[mdspan]") {
-	stdex::extents<int, 1,2,3,4,5> ex;
+	Kokkos::extents<int, 1,2,3,4,5> ex;
 	using trimmed_extent = decltype(empi::details::remove_last(ex));
-	REQUIRE(std::is_same_v<trimmed_extent,stdex::extents<int, 1,2,3,4>>);
+	REQUIRE(std::is_same_v<trimmed_extent,Kokkos::extents<int, 1,2,3,4>>);
 }
 
 struct S{
@@ -60,9 +60,9 @@ TEST_CASE("Create struct layout", "[mdspan|struct_layout]") {
 	int count = 0;
 	std::transform(tmp.begin(), tmp.end(), tmp.begin(),[&count](S& s){s.x=count++; s.y=count++;return s;});
 	auto proj = [](S& s) -> int& {return s.y;};
-    auto ext = stdex::extents(10);
+    auto ext = Kokkos::extents(10);
 	std::array stride{2};
-    stdex::mdspan view{tmp.data(), stdex::layout_stride::mapping{ext,stride}, empi::layouts::struct_layout::struct_accessor<S,decltype(proj)>(std::move(proj))};
+    Kokkos::mdspan view{tmp.data(), Kokkos::layout_stride::mapping{ext,stride}, empi::layouts::struct_layout::struct_accessor<S,decltype(proj)>(std::move(proj))};
 
 	for(int i = 0; i < 5; i+=1){
 		// REQUIRE(view[i] == i*2+1);
@@ -73,8 +73,8 @@ TEST_CASE("Create struct layout", "[mdspan|struct_layout]") {
 TEST_CASE("Compact column layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(10);
 	std::iota(v.begin(),v.end(),0);
-	stdex::extents<size_t,5,2> ext;
-	stdex::mdspan<int, decltype(ext)> tmp(v.data(),ext); 
+	Kokkos::extents<size_t,5,2> ext;
+	Kokkos::mdspan<int, decltype(ext)> tmp(v.data(),ext); 
 	auto view = empi::layouts::column_layout::build(v, ext, 1);
 	
 	auto ptr = empi::layouts::compact(view);
@@ -88,12 +88,12 @@ TEST_CASE("Create tiled block layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(10);
 	std::iota(v.begin(),v.end(),0);
 
-	stdex::dextents<size_t,1> ext(10 / 5 * 3);
+	Kokkos::dextents<size_t,1> ext(10 / 5 * 3);
 	size_t blocks{3};
 	size_t strides{5};
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
-													    std::experimental::default_accessor<int>());
+													   Kokkos::default_accessor<int>());
 	for (int i = 0; i < 6; i++) {
 		REQUIRE(view[i] == i + (2 * (i/3)));
 	}
@@ -103,7 +103,7 @@ TEST_CASE("Create blocked block layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(20);
 	std::iota(v.begin(),v.end(),0);
 
-	stdex::extents<size_t,20> ext;
+	Kokkos::extents<size_t,20> ext;
 	size_t blocks{2};
 	std::array<size_t,2> strides({3,5});
 	auto view = empi::layouts::block_layout::build(v, ext, 
@@ -125,12 +125,12 @@ TEST_CASE("Create bucket block layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(20);
 	std::iota(v.begin(),v.end(),0);
 
-	stdex::extents<size_t,20> ext;
+	Kokkos::extents<size_t,20> ext;
 	std::array<size_t,2> blocks({4,3});
 	size_t strides{5};
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
-													    std::experimental::default_accessor<int>());
+													   Kokkos::default_accessor<int>());
 	REQUIRE(view[0] == 0);
 	REQUIRE(view[1] == 1);
 	REQUIRE(view[2] == 2);
@@ -151,12 +151,12 @@ TEST_CASE("Create alternating block layout", "[mdspan|layouts|compact]"){
 	std::vector<int> v(20);
 	std::iota(v.begin(),v.end(),0);
 
-	stdex::extents<size_t,20> ext;
+	Kokkos::extents<size_t,20> ext;
 	std::array<size_t,2> blocks({4,3});
 	std::array<size_t,2> strides({5,6});
 	auto view = empi::layouts::block_layout::build(v, ext, 
 														blocks,strides,
-													    std::experimental::default_accessor<int>());
+													   Kokkos::default_accessor<int>());
 
 	REQUIRE(view[0] == 0);
 	REQUIRE(view[1] == 1);

@@ -66,10 +66,13 @@ set(header_files
 
 add_library(empi INTERFACE ${header_files})
 
+get_property(dirs1 TARGET std::mdspan PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_BINARY_DIR}/include
 	MPI::MPI_CXX_INCLUDE_DIRS
+	${dirs1}
 )
 
 target_link_libraries(empi INTERFACE MPI::MPI_CXX)
