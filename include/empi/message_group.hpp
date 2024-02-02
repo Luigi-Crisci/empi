@@ -1,19 +1,19 @@
 /*
-* Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
-*/
+ * Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
+ */
 
 #ifndef EMPI_PROJECT_INCLUDE_EMPI_MESSAGE_GROUP_HPP_
 #define EMPI_PROJECT_INCLUDE_EMPI_MESSAGE_GROUP_HPP_
 
 #include "empi/async_event.hpp"
-#include <mpi.h>
 #include <memory>
+#include <mpi.h>
 
-#include <empi/request_pool.hpp>
 #include <empi/message_grp_hdl.hpp>
+#include <empi/request_pool.hpp>
 #include <empi/tag.hpp>
-#include <empi/utils.hpp>
 #include <empi/type_traits.hpp>
+#include <empi/utils.hpp>
 
 
 namespace empi {

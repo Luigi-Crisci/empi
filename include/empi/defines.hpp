@@ -1,6 +1,6 @@
 /*
-* Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
-*/
+ * Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
+ */
 
 #ifndef INCLUDE_EMPI_DEFINES
 #define INCLUDE_EMPI_DEFINES
@@ -36,36 +36,20 @@ namespace empi{
 	
 	namespace stdex = std::experimental; 
 
-	constexpr int NOSIZE = 0;
+constexpr int NOSIZE = 0;
 
-	namespace details{
-		enum mpi_function{
-			send = 1,
-			isend,
-			recv,
-			irecv,
-			bcast,
-			ibcast,
-			allreduce,
-			gatherv,
-			all
-		};
+namespace details {
+enum mpi_function { send = 1, isend, recv, irecv, bcast, ibcast, allreduce, gatherv, all };
 
-		template<mpi_function f>
-		concept is_send = requires {
-			f == mpi_function::send || f == mpi_function::isend;
-		};
+template<mpi_function f>
+concept is_send = requires { f == mpi_function::send || f == mpi_function::isend; };
 
-		template<mpi_function f>
-		concept is_recv = requires {
-			f == mpi_function::recv || f == mpi_function::irecv;
-		};
+template<mpi_function f>
+concept is_recv = requires { f == mpi_function::recv || f == mpi_function::irecv; };
 
-		template<mpi_function f>
-		concept is_all = requires {
-			f == mpi_function::all;
-		};
-	}
-}
+template<mpi_function f>
+concept is_all = requires { f == mpi_function::all; };
+} // namespace details
+} // namespace empi
 
 #endif /* INCLUDE_EMPI_DEFINES */
