@@ -1,15 +1,14 @@
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <malloc.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
-#include <cmath>
 
 using namespace std;
-
 
 
 int main(int argc, char **argv) {
@@ -76,4 +75,3 @@ int main(int argc, char **argv) {
     MPI_Finalize();
     return 0;
 } // end main
-

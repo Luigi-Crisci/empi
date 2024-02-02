@@ -13,7 +13,6 @@ using namespace std;
 using value_type = char;
 
 
-
 int main(int argc, char **argv) {
     double t_start, t_end, mpi_time = 0.0;
     constexpr int SCALE = 1000000;
@@ -68,4 +67,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 } // end main
-

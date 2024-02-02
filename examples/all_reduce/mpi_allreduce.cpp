@@ -16,7 +16,6 @@ using namespace std;
 using value_type = int;
 
 
-
 int main(int argc, char **argv) {
     int myid, procs, n, err, max_iter, nBytes, sleep_time, range = 100, pow_2;
     double t_start, t_end, t_start_inner;

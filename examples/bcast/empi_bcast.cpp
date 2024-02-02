@@ -16,7 +16,6 @@
 using namespace std;
 
 
-
 int main(int argc, char **argv) {
     int myid, procs, err, max_iter, nBytes, sleep_time, range = 100, pow_2;
     long n;
@@ -45,9 +44,7 @@ int main(int argc, char **argv) {
         // main measurement
         if(message_group->rank() == 0) t_start = MPI_Wtime();
 
-        for (auto iter = 0; iter < max_iter; iter++) {
-          mgh.Bcast(myarr, 0, n);
-        }
+        for(auto iter = 0; iter < max_iter; iter++) { mgh.Bcast(myarr, 0, n); }
 
         message_group->barrier();
         if(message_group->rank() == 0) {
@@ -70,4 +67,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 } // end main
-

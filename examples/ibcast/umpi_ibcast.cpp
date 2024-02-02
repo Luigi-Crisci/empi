@@ -16,7 +16,6 @@ sleep_time(sleep time between iterations)
 using namespace std;
 
 
-
 int main(int argc, char **argv) {
     int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100, pow_2;
     double t_start, t_end;
@@ -83,4 +82,3 @@ int main(int argc, char **argv) {
     MPI_Finalize();
     return 0;
 } // end main
-

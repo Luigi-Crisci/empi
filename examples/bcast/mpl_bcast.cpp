@@ -13,7 +13,6 @@ using namespace std;
 using value_type = char;
 
 
-
 int main(int argc, char **argv) {
     int err, n, myid;
     double t_start, t_end, mpi_time = 0.0;
@@ -63,4 +62,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 } // end main
-

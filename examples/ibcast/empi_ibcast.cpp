@@ -15,8 +15,6 @@
 using namespace std;
 
 
-
-
 int main(int argc, char **argv) {
     int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
     double t_start, t_end, t_start_inner;
@@ -68,4 +66,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 } // end main
-

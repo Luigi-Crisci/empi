@@ -14,7 +14,6 @@ using namespace std;
 using value_type = int;
 
 
-
 int main(int argc, char **argv) {
     double t_start, t_end;
     double mpi_time = 0.0;
@@ -72,4 +71,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 } // end main
-

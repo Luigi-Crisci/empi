@@ -13,87 +13,80 @@
 using namespace std;
 
 
-
 int main(int argc, char **argv) {
-  int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
-  double t_start, t_end, t_start_inner, t_compact1, t_compact2, t_view1, t_view2, compact_time;
-  double mpi_time = 0.0;
-  constexpr int SCALE = 1000000;
-  constexpr int WARMUP = 100; 
-  long nBytes;
-  empi::Context ctx(&argc, &argv);
+    int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
+    double t_start, t_end, t_start_inner, t_compact1, t_compact2, t_view1, t_view2, compact_time;
+    double mpi_time = 0.0;
+    constexpr int SCALE = 1000000;
+    constexpr int WARMUP = 100;
+    long nBytes;
+    empi::Context ctx(&argc, &argv);
 
-  // ------ PARAMETER SETUP -----------
-  n = atoi(argv[1]);
-  max_iter = atoi(argv[2]);
+    // ------ PARAMETER SETUP -----------
+    n = atoi(argv[1]);
+    max_iter = atoi(argv[2]);
 
-  size_t A = std::stoi(argv[3]);
-  size_t B = std::stoi(argv[4]);
-  assert(B >= A);
-  string datatype = argv[5];
+    size_t A = std::stoi(argv[3]);
+    size_t B = std::stoi(argv[4]);
+    assert(B >= A);
+    string datatype = argv[5];
 
-  auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
+    auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
 
-  auto run_bench = [&](auto data_t_v) {
-    using type = decltype(data_t_v);
-    n = n / sizeof(type);
-    assert(n > 0);
-    // std::cout << "size of struct: " << sizeof(type) << "\n";
+    auto run_bench = [&](auto data_t_v) {
+        using type = decltype(data_t_v);
+        n = n / sizeof(type);
+        assert(n > 0);
+        // std::cout << "size of struct: " << sizeof(type) << "\n";
 
-    auto view_size = n / B * A;
-    // std::cout << "n: " << n << '\n';
-    // std::cout << "View size: " << view_size << "\n";
-    std::vector<type> myarr(n);
-    t_view1 = MPI_Wtime();
-    Kokkos::dextents<size_t, 1> ext(view_size);
-    auto view = empi::layouts::block_layout::build(myarr, ext, A,
-                                                   B);
-    t_view2 = MPI_Wtime();
+        auto view_size = n / B * A;
+        // std::cout << "n: " << n << '\n';
+        // std::cout << "View size: " << view_size << "\n";
+        std::vector<type> myarr(n);
+        t_view1 = MPI_Wtime();
+        Kokkos::dextents<size_t, 1> ext(view_size);
+        auto view = empi::layouts::block_layout::build(myarr, ext, A, B);
+        t_view2 = MPI_Wtime();
 
-    message_group->run(
-        [&](empi::MessageGroupHandler<type, empi::Tag{0}, empi::NOSIZE> &mgh) {
-          // Warmup
-          mgh.barrier();
-          for (auto iter = 0; iter < WARMUP; iter++)
-            mgh.Bcast(view, 0, view_size);
-          mgh.barrier();
+        message_group->run([&](empi::MessageGroupHandler<type, empi::Tag{0}, empi::NOSIZE> &mgh) {
+            // Warmup
+            mgh.barrier();
+            for(auto iter = 0; iter < WARMUP; iter++) mgh.Bcast(view, 0, view_size);
+            mgh.barrier();
 
-          t_start = MPI_Wtime();
-          auto&& ptr = empi::layouts::block_layout::compact(view);
-          t_compact2 = MPI_Wtime();
-          
-          for (auto iter = 0; iter < max_iter; iter++) {
-            mgh.Bcast(ptr.get(), 0, view_size);
-          }
+            t_start = MPI_Wtime();
+            auto &&ptr = empi::layouts::block_layout::compact(view);
+            t_compact2 = MPI_Wtime();
 
-          message_group->barrier();
-          t_end = MPI_Wtime();
-          if (message_group->rank() == 0) {
-            mpi_time = (t_end - t_compact2) * SCALE;
-            compact_time = (t_compact2 - t_start) * SCALE;
-          }
+            for(auto iter = 0; iter < max_iter; iter++) { mgh.Bcast(ptr.get(), 0, view_size); }
+
+            message_group->barrier();
+            t_end = MPI_Wtime();
+            if(message_group->rank() == 0) {
+                mpi_time = (t_end - t_compact2) * SCALE;
+                compact_time = (t_compact2 - t_start) * SCALE;
+            }
         });
-  };
+    };
 
-  if(datatype == "basic") {
-    run_bench(char());
-  } else {
-    run_bench(basic_struct{});
-  }
+    if(datatype == "basic") {
+        run_bench(char());
+    } else {
+        run_bench(basic_struct{});
+    }
 
-  message_group->barrier();
-  if (message_group->rank() == 0) {
-    // cout << "\nData Size: " << nBytes << " bytes\n";
-    cout << mpi_time << "\n";
-cout << ((t_view2 - t_view1) * SCALE) << "\n"; 
-cout << compact_time << "\n";
-    // cout << "Mean of communication times: " << Mean(mpi_time, num_restart)
-    //      << "\n";
-    // cout << "Median of communication times: " << Median(mpi_time,
-    // num_restart)
-    //      << "\n";
-    // 	Print_times(mpi_time, num_restart);
-  }
-  return 0;
+    message_group->barrier();
+    if(message_group->rank() == 0) {
+        // cout << "\nData Size: " << nBytes << " bytes\n";
+        cout << mpi_time << "\n";
+        cout << ((t_view2 - t_view1) * SCALE) << "\n";
+        cout << compact_time << "\n";
+        // cout << "Mean of communication times: " << Mean(mpi_time, num_restart)
+        //      << "\n";
+        // cout << "Median of communication times: " << Median(mpi_time,
+        // num_restart)
+        //      << "\n";
+        // 	Print_times(mpi_time, num_restart);
+    }
+    return 0;
 } // end main
-

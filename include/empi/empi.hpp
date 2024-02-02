@@ -1,15 +1,15 @@
 /*
-* Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
-*/
+ * Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
+ */
 
 #ifndef __EMPI_H__
 #define __EMPI_H__
 
+#include <empi/async_event.hpp>
 #include <empi/context.hpp>
+#include <empi/layouts.hpp>
 #include <empi/message_group.hpp>
 #include <empi/message_grp_hdl.hpp>
-#include <empi/async_event.hpp>
 #include <empi/tag.hpp>
-#include <empi/layouts.hpp>
 
 #endif // __EMPI_H__

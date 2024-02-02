@@ -10,7 +10,6 @@
 using namespace std;
 
 
-
 int main(int argc, char **argv) {
     int myid, procs, err, max_iter, nBytes, sleep_time, range = 100, pow_2;
     double t_start, t_end, mpi_time = 0;
@@ -69,4 +68,3 @@ int main(int argc, char **argv) {
     MPI_Finalize();
     return 0;
 } // end main
-
