@@ -8,59 +8,80 @@
 #include <mpi.h>
 #include <unistd.h>
 
+#include <argparse/argparse.hpp>
+
 #include "../../utils.hpp"
 
 using namespace std;
 
 
 int main(int argc, char **argv) {
-    int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
-    double t_start, t_end, t_start_inner, t_compact1, t_compact2, t_view1, t_view2, compact_time;
+    int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100, pow_2;
+    double t_start, t_end, t_compact1, t_compact2, t_view1, t_view2, compact_time;
     double mpi_time = 0.0;
     constexpr int SCALE = 1000000;
     constexpr int WARMUP = 100;
-    long nBytes;
     empi::Context ctx(&argc, &argv);
 
     // ------ PARAMETER SETUP -----------
     n = atoi(argv[1]);
     max_iter = atoi(argv[2]);
 
+    auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
+    MPI_Status status;
+    const int rank = message_group->rank();
+
+    // Constucting layout
     size_t A = std::stoi(argv[3]);
     size_t B = std::stoi(argv[4]);
-    assert(B >= A);
     string datatype = argv[5];
-
-    auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
 
     auto run_bench = [&](auto data_t_v) {
         using type = decltype(data_t_v);
         n = n / sizeof(type);
         assert(n > 0);
-        // std::cout << "size of struct: " << sizeof(type) << "\n";
-
-        auto view_size = n / B * A;
-        // std::cout << "n: " << n << '\n';
-        // std::cout << "View size: " << view_size << "\n";
         std::vector<type> myarr(n);
+        auto tiled_size = n / B * A;
+
         t_view1 = MPI_Wtime();
-        Kokkos::dextents<size_t, 1> ext(view_size);
+        Kokkos::dextents<size_t, 1> ext(tiled_size);
         auto view = empi::layouts::block_layout::build(myarr, ext, A, B);
         t_view2 = MPI_Wtime();
 
+        std::vector<type> res(tiled_size);
+
         message_group->run([&](empi::MessageGroupHandler<type, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            // Warmup
+            // Warm up
             mgh.barrier();
-            for(auto iter = 0; iter < WARMUP; iter++) mgh.Bcast(view, 0, view_size);
+
+            for(auto iter = 0; iter < WARMUP; iter++) {
+                if(rank == 0) {
+                    mgh.send(view, 1, tiled_size);
+                    mgh.recv(res, 1, tiled_size, status);
+                } else {
+                    mgh.recv(view, 0, tiled_size, status);
+                    mgh.send(res, 0, tiled_size);
+                }
+            }
             mgh.barrier();
 
             t_start = MPI_Wtime();
-            auto &&ptr = empi::layouts::block_layout::compact(view);
+            auto ptr = empi::layouts::block_layout::compact(view); 
+
             t_compact2 = MPI_Wtime();
 
-            for(auto iter = 0; iter < max_iter; iter++) { mgh.Bcast(ptr.get(), 0, view_size); }
+            for(auto iter = 0; iter < max_iter; iter++) {
+                if(rank == 0) {
+                    mgh.send(ptr.get(), 1, tiled_size);
+                    mgh.recv(res, 1, tiled_size, status);
+                } else {
+                    mgh.recv(res, 0, tiled_size, status);
+                    mgh.send(res, 0, tiled_size);
+                }
+            }
 
             message_group->barrier();
+
             t_end = MPI_Wtime();
             if(message_group->rank() == 0) {
                 mpi_time = (t_end - t_compact2) * SCALE;
@@ -76,6 +97,7 @@ int main(int argc, char **argv) {
     }
 
     message_group->barrier();
+
     if(message_group->rank() == 0) {
         // cout << "\nData Size: " << nBytes << " bytes\n";
         cout << mpi_time << "\n";
@@ -83,8 +105,7 @@ int main(int argc, char **argv) {
         cout << compact_time << "\n";
         // cout << "Mean of communication times: " << Mean(mpi_time, num_restart)
         //      << "\n";
-        // cout << "Median of communication times: " << Median(mpi_time,
-        // num_restart)
+        // cout << "Median of communication times: " << Median(mpi_time, num_restart)
         //      << "\n";
         // 	Print_times(mpi_time, num_restart);
     }

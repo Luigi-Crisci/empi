@@ -8,7 +8,6 @@
 #include "empi/async_event.hpp"
 #include "mpi.h"
 #include <empi/utils.hpp>
-#include <iostream>
 #include <memory>
 #include <vector>
 

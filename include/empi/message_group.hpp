@@ -28,6 +28,12 @@ class MessageGroup {
         _request_pool = std::make_shared<request_pool>(pool_size);
     }
 
+    MessageGroup(MessageGroup &&) = default;
+    MessageGroup(std::unique_ptr<MessageGroup>&& other) {
+        MessageGroup(std::move(*other));
+        other.release();
+    }
+
     // Wait an all Message in this group, so that no request is pending
     ~MessageGroup() { wait_all(); }
 

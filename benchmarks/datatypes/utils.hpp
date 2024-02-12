@@ -6,17 +6,66 @@
 #include <iostream>
 #include <mpi.h>
 #include <string>
+#include <tuple>
 
 struct basic_struct {
     int x;
     int y;
     float z;
+
+    basic_struct() : x(0), y(0), z(0.0) {}
+
+    //define copy assignment operator
+    basic_struct &operator=(const basic_struct &other) {
+        x = other.x;
+        y = other.y;
+        z = other.z;
+        return *this;
+    }
+
+    basic_struct& operator++() {
+        x++;
+        y++;
+        z++;
+        return *this;
+    }
 };
+
+template<typename T>
+void print_safe_mpi(T *data, int n, int rank){
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    for(int i = 0; i < size; i++) {
+        if(i == rank) {
+            std::cout << "Rank " << rank << ": ";
+            for(int j = 0; j < n; j++) {
+                std::cout << data[j] << ", ";
+            }
+            std::cout << "\n";
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+}
+
+template<typename T>
+void print_mpi_exclusive(T* data, int n, int exec_rank, int caller_rank){
+    if (caller_rank == exec_rank){
+            std::cout << "Rank " << caller_rank <<": ";
+            for(int j = 0; j < n; j++) {
+                std::cout << data[j] << ", ";
+            }
+            std::cout << "\n";
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
 
 static MPI_Datatype basic_type = MPI_CHAR;
 
 int get_communication_size(int num_bytes, MPI_Datatype derived_datatype, MPI_Datatype raw_datatype) {
-    MPI_Aint derived_datatype_extent, raw_datatype_extent, lb;
+    MPI_Aint derived_datatype_extent;
+    MPI_Aint raw_datatype_extent;
+    MPI_Aint lb;
     MPI_Type_get_extent(derived_datatype, &lb, &derived_datatype_extent);
     MPI_Type_get_extent(raw_datatype, &lb, &raw_datatype_extent);
     assert(num_bytes % raw_datatype_extent == 0);
@@ -85,6 +134,14 @@ int bl_basetype(MPI_Datatype *t, int *flags) {
 
     return MPI_SUCCESS;
 }
+
+// elements A, extent (in units of b) B
+int bl_column(MPI_Datatype *t, int col_size, int row_size,  MPI_Datatype b) {
+    MPI_Type_vector(col_size, 1, row_size, b, t);
+    MPI_Type_commit(t);
+    return MPI_SUCCESS;
+}
+
 
 
 // elements A, extent (in units of b) B
@@ -184,6 +241,7 @@ int bl_alternating(MPI_Datatype *t, int *flags, MPI_Datatype b, int A1, int A2, 
 
     return MPI_SUCCESS;
 }
+
 
 
 #endif /* EXAMPLES_DATATYPES_UTILS */

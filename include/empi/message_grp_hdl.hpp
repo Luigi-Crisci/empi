@@ -30,9 +30,9 @@ class MessageGroupHandler {
 
   public:
     explicit MessageGroupHandler(MPI_Comm comm, std::shared_ptr<request_pool> _request_pool, int rank, int size)
-        : communicator(comm), _request_pool(std::move(_request_pool)), rank(rank), size(size) {
+        : m_communicator(comm), m_request_pool(std::move(_request_pool)), m_rank(rank), m_size(size) {
         // MPI_Datatype type = details::mpi_type<T>::get_type();
-        max_tag = std::numeric_limits<int>::max(); // TODO: Remove this
+        m_max_tag = std::numeric_limits<int>::max(); // TODO: Remove this
         // MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
         // if(!flag){
         //   max_tag = -1;
@@ -45,9 +45,9 @@ class MessageGroupHandler {
 
     // -------------- UTILITY -----------------------------
 
-    int inline barrier() const { return MPI_Barrier(communicator); }
+    int inline barrier() const { return MPI_Barrier(m_communicator); }
 
-    void waitall() { _request_pool->waitall(); }
+    void waitall() { m_request_pool->waitall(); }
 
     // -------------- SEND -----------------------------------------
 
@@ -56,13 +56,13 @@ class MessageGroupHandler {
         using element_type = details::get_true_type_t<K>;
         auto &&ptr = details::get_underlying_pointer(std::forward<K>(data), true);
         return EMPI_SEND(
-            empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, dest, tag.value, communicator);
+            empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, dest, tag.value, m_communicator);
     }
 
     template<typename K>
         requires(SIZE == NOSIZE) && (TAG == NOTAG)
     int send(K &&data, int dest, const size_t size, Tag tag) const {
-        details::checktag<details::mpi_function::send>(tag.value, max_tag);
+        details::checktag<details::mpi_function::send>(tag.value, m_max_tag);
         // TODO: Check type...
         // TODO: Check size...
         return _send_impl(std::forward<K>(data), dest, size, tag);
@@ -77,7 +77,7 @@ class MessageGroupHandler {
     template<typename K>
         requires(SIZE > 0) && (TAG == NOTAG)
     int send(K &&data, int dest, Tag tag) {
-        details::checktag<details::mpi_function::send>(tag.value, max_tag);
+        details::checktag<details::mpi_function::send>(tag.value, m_max_tag);
         return _send_impl(data, dest, SIZE, tag);
     }
 
@@ -96,13 +96,13 @@ class MessageGroupHandler {
     inline int _recv_impl(K &&data, const int src, const size_t size, const Tag tag, MPI_Status &status) {
         using element_type = details::get_true_type_t<K>;
         return EMPI_RECV(empi_byte_cast(details::get_underlying_pointer(data)), size * details::size_of<element_type>,
-            MPI_BYTE, src, tag.value, communicator, &status);
+            MPI_BYTE, src, tag.value, m_communicator, &status);
     }
 
     template<typename K>
         requires(SIZE == NOSIZE) && (TAG == NOTAG)
     int recv(K &&data, const int src, const size_t size, Tag tag, MPI_Status &status) {
-        details::checktag<details::mpi_function::recv>(tag.value, max_tag);
+        details::checktag<details::mpi_function::recv>(tag.value, m_max_tag);
         // Check size...
         return _recv_impl(std::forward<K>(data), src, size, tag, status);
     }
@@ -125,7 +125,7 @@ class MessageGroupHandler {
     template<typename K>
         requires(SIZE > 0) && (TAG == NOTAG)
     int recv(K &&data, const int src, Tag tag, MPI_Status &status) {
-        details::checktag<details::mpi_function::recv>(tag.value, max_tag);
+        details::checktag<details::mpi_function::recv>(tag.value, m_max_tag);
         return _recv_impl(data, src, SIZE, tag, status);
     }
 
@@ -135,10 +135,10 @@ class MessageGroupHandler {
     // ------------------------- START ISEND --------------------------
     template<typename K>
     inline std::shared_ptr<async_event> &_isend_impl(K &&data, const int dest, const size_t size, const Tag tag) {
-        auto &&event = _request_pool->get_req();
+        auto &&event = m_request_pool->get_req();
         using element_type = details::get_true_type_t<K>;
         auto &&ptr = details::get_underlying_pointer(std::forward<K>(data));
-        EMPI_ISEND(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, dest, tag.value, communicator,
+        EMPI_ISEND(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, dest, tag.value, m_communicator,
             event->request.get());
         return event;
     }
@@ -161,7 +161,7 @@ class MessageGroupHandler {
     template<typename K>
         requires(SIZE > 0) && (TAG == NOTAG)
     std::shared_ptr<async_event> &Isend(K &&data, int dest, Tag tag) {
-        details::checktag<details::mpi_function::isend>(tag.value, max_tag);
+        details::checktag<details::mpi_function::isend>(tag.value, m_max_tag);
         return _isend_impl(std::forward<K>(data), dest, SIZE, tag);
     }
 
@@ -169,7 +169,7 @@ class MessageGroupHandler {
         requires(SIZE == NOSIZE) && (TAG == NOTAG)
     std::shared_ptr<async_event> &Isend(K &&data, int dest, const size_t size, Tag tag) {
         // Check size...
-        details::checktag<details::mpi_function::isend>(tag.value, max_tag);
+        details::checktag<details::mpi_function::isend>(tag.value, m_max_tag);
         return _isend_impl(std::forward<K>(data), dest, size, tag);
     }
 
@@ -179,10 +179,10 @@ class MessageGroupHandler {
     // ------------------------- START URECV --------------------------
     template<typename K>
     inline std::shared_ptr<async_event> &_irecv_impl(K &&data, const int src, const size_t size, const Tag tag) const {
-        auto &&event = _request_pool->get_req();
+        auto &&event = m_request_pool->get_req();
         using element_type = details::get_true_type_t<K>;
         EMPI_IRECV(empi_byte_cast(details::get_underlying_pointer(data)), size * details::size_of<element_type>,
-            MPI_BYTE, src, tag.value, communicator, event->request.get());
+            MPI_BYTE, src, tag.value, m_communicator, event->request.get());
         return event;
     }
 
@@ -201,14 +201,14 @@ class MessageGroupHandler {
     template<typename K>
         requires(SIZE > 0) && (TAG == NOTAG)
     std::shared_ptr<async_event> &Irecv(K &&data, const int src, const Tag tag) const {
-        details::checktag<details::mpi_function::irecv>(tag.value, max_tag);
+        details::checktag<details::mpi_function::irecv>(tag.value, m_max_tag);
         return _irecv_impl(data, src, SIZE, tag);
     }
 
     template<typename K>
         requires(SIZE == NOSIZE) && (TAG == NOTAG)
     std::shared_ptr<async_event> &Irecv(K &&data, const int src, const size_t size, const Tag tag) const {
-        details::checktag<details::mpi_function::irecv>(tag.value, max_tag);
+        details::checktag<details::mpi_function::irecv>(tag.value, m_max_tag);
         return _irecv_impl(data, src, size, tag);
     }
 
@@ -218,8 +218,8 @@ class MessageGroupHandler {
     template<typename K>
     int _bcast_impl(K &&data, const int root, const size_t size) {
         using element_type = details::get_true_type_t<K>;
-        auto &&ptr = details::get_underlying_pointer(std::forward<K>(data), root == rank);
-        return EMPI_BCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, root, communicator);
+        auto &&ptr = details::get_underlying_pointer(std::forward<K>(data), root == m_rank);
+        return EMPI_BCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, root, m_communicator);
     }
 
     template<typename K>
@@ -240,9 +240,9 @@ class MessageGroupHandler {
     template<typename K>
     std::shared_ptr<async_event> &_ibcast_impl(K &&data, const int root, const size_t size) {
         using element_type = details::get_true_type_t<K>;
-        auto &&event = _request_pool->get_req();
-        auto &&ptr = details::get_underlying_pointer(std::forward<K>(data), root == rank);
-        EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, root, communicator,
+        auto &&event = m_request_pool->get_req();
+        auto &&ptr = details::get_underlying_pointer(std::forward<K>(data), root == m_rank);
+        EMPI_IBCAST(empi_byte_cast(ptr), size * details::size_of<element_type>, MPI_BYTE, root, m_communicator,
             event->get_request());
         return event;
     }
@@ -278,13 +278,13 @@ class MessageGroupHandler {
         requires(details::is_valid_container<T, K> || details::is_valid_pointer<T, K>) && (SIZE > 0)
     int Allreduce(K &&sendbuf, K &&recvbuf, MPI_Op op) {
         return EMPI_ALLREDUCE(details::get_underlying_pointer(sendbuf), details::get_underlying_pointer(recvbuf), SIZE,
-            details::mpi_type<T>::get_type(), op, communicator);
+            details::mpi_type<T>::get_type(), op, m_communicator);
     }
 
     template<typename K>
         requires(details::is_valid_container<T, K> || details::is_valid_pointer<T, K>) && (SIZE == NOSIZE)
     int Allreduce(K &&sendbuf, K &&recvbuf, const size_t size, MPI_Op op) {
-        return EMPI_ALLREDUCE(sendbuf, recvbuf, size, details::mpi_type<T>::get_type(), op, communicator);
+        return EMPI_ALLREDUCE(sendbuf, recvbuf, size, details::mpi_type<T>::get_type(), op, m_communicator);
     }
 
     // ------------------------- END ALLREDUCE --------------------------
@@ -295,7 +295,7 @@ class MessageGroupHandler {
         details::typed_range<int> auto &&recvcounts, details::typed_range<int> auto &&displacements) {
         using send_element_type = details::get_true_type_t<K>;
         using recv_element_type = details::get_true_type_t<K>;
-        auto &&send_ptr = details::get_underlying_pointer(std::forward<K>(sendbuf), root == rank);
+        auto &&send_ptr = details::get_underlying_pointer(std::forward<K>(sendbuf), root == m_rank);
         auto &&recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
 
         // Each node receives recvcount * size bytes
@@ -305,7 +305,7 @@ class MessageGroupHandler {
 
         return EMPI_GATHERV(empi_byte_cast(send_ptr), sendcount * details::size_of<send_element_type>, MPI_BYTE,
             empi_byte_cast(recv_ptr), std::ranges::data(recvcounts), std::ranges::data(displacements), MPI_BYTE, root,
-            communicator);
+            m_communicator);
     }
 
 
@@ -320,9 +320,9 @@ class MessageGroupHandler {
     int gatherv(const int root, K &&sendbuf, int sendcount, K &&recvbuf, auto &&recvcounts, auto &&displacements) {
         // Check sizes...
         return _gatherv_impl(root, std::forward<K>(sendbuf), sendcount, std::forward<K>(recvbuf),
-            std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)).get(), size),
+            std::span(details::get_underlying_pointer(std::forward<decltype(recvcounts)>(recvcounts)).get(), m_size),
             std::span(
-                details::get_underlying_pointer(std::forward<decltype(displacements)>(displacements)).get(), size));
+                details::get_underlying_pointer(std::forward<decltype(displacements)>(displacements)).get(), m_size));
     }
     // ------------------------- END GATHERV --------------------------
 
@@ -333,16 +333,8 @@ class MessageGroupHandler {
         auto send_ptr = details::get_underlying_pointer(std::forward<T>(sendbuf), true);
         auto recv_ptr = details::get_underlying_pointer(std::forward<K>(recvbuf));
 
-        // for (int i = 0; i < sendcount; i++) {
-        // 	std::cout << i << ": " << send_ptr.get()[i] << "\n";
-        // }
-
-        // for (int i = 0; i < recvcounts; i++) {
-        // 	std::cout << i << ": " << recv_ptr.get()[i] << "\n";
-        // }
-
         return EMPI_ALLGATHER(empi_byte_cast(send_ptr), sendcount * details::size_of<send_element_type>, MPI_BYTE,
-            empi_byte_cast(recv_ptr), recvcounts * details::size_of<recv_element_type>, MPI_BYTE, communicator);
+            empi_byte_cast(recv_ptr), recvcounts * details::size_of<recv_element_type>, MPI_BYTE, m_communicator);
     }
 
     template<typename T, typename K>
@@ -352,11 +344,11 @@ class MessageGroupHandler {
 
 
   private:
-    MPI_Comm communicator;
-    std::shared_ptr<request_pool> _request_pool;
-    int max_tag;
-    const int rank;
-    const int size;
+    MPI_Comm m_communicator;
+    std::shared_ptr<request_pool> m_request_pool;
+    int m_max_tag;
+    const int m_rank;
+    const int m_size;
 };
 
 } // namespace empi

@@ -1,7 +1,7 @@
 #ifndef TEST_UTILS
 #define TEST_UTILS
 
-// namespaceKokkos{
+// namespace Kokkos{
 
 // 	}
 

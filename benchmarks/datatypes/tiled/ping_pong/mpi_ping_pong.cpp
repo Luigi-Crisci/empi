@@ -56,14 +56,6 @@ int main(int argc, char **argv) {
 
     int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
 
-    // if (myid == 0) {
-    //   std::cout << "N: " << n << "\n";
-    //   std::cout << "Basic extent: " << basic_extent << "\n";
-    //   std::cout << "tiled size: " << tiled_size << "\n";
-    //   std::cout << "Datatype size: " << datatype_size << "\n";
-    //   std::cout << "Extent: " << extent << "\n";
-    //   std::cout << "Required memory: " << tiled_size * extent << "\n";
-    // }
 
     // Warmup
     MPI_Barrier(MPI_COMM_WORLD);

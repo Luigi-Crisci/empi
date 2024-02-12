@@ -14,7 +14,7 @@ namespace empi::details {
 template<typename T>
 struct conditional_deleter {
     constexpr conditional_deleter() noexcept = default;
-    constexpr explicit conditional_deleter(bool owving) : m_is_owning_ptr(owving) {}
+    constexpr explicit conditional_deleter(bool owning) : m_is_owning_ptr(owning) {}
 
     template<typename Up>
         requires std::is_convertible_v<Up *, T *>
@@ -23,7 +23,7 @@ struct conditional_deleter {
     void operator()(T *ptr) const {
         if(m_is_owning_ptr) { delete ptr; }
 #ifdef TEST
-        _ptr = nullptr;
+        ptr = nullptr;
 #endif
     }
 
@@ -34,7 +34,7 @@ struct conditional_deleter {
 template<typename T>
 struct conditional_deleter<T[]> {
     constexpr conditional_deleter() noexcept = default;
-    constexpr explicit conditional_deleter(bool owving) : m_is_owning_ptr(owving) {}
+    constexpr explicit conditional_deleter(bool owning) : m_is_owning_ptr(owning) {}
 
     template<typename Up>
         requires std::is_convertible_v<Up (*)[], T (*)[]>
@@ -45,7 +45,7 @@ struct conditional_deleter<T[]> {
     void operator()(Up *ptr) const {
         if(m_is_owning_ptr) { delete[] ptr; }
 #ifdef TEST
-        _ptr = nullptr;
+        ptr = nullptr;
 #endif
     }
 

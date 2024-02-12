@@ -16,11 +16,20 @@ set(EMPI_VERSION_PATCH 0)
 project(empi-project VERSION "${EMPI_VERSION}" LANGUAGES CXX)	
 
 set(CMAKE_CXX_STANDARD 20)
+
+# fetch mdspan 
+include(FetchContent)
+FetchContent_Declare(
+  mdspan
+  GIT_REPOSITORY https://github.com/kokkos/mdspan.git
+  GIT_TAG stable
+)
+FetchContent_MakeAvailable(mdspan)
+
 include(FindMPI REQUIRED)
-find_package(mdspan REQUIRED)
 
 option(ENABLE_UNCHECKED_FUNCTION "Enable unchecked function (requires custom OMPI)" ON)
-option(BUILD_EXAMPLES "Build Examples" OFF)
+option(BUILD_BENCHMARKS "Build Benchmarks" OFF)
 option(ENABLE_TESTS "Enable testing" OFF)
 option(ENABLE_SANITIZER "Enable sanitizer" OFF)
 
@@ -61,6 +70,7 @@ set(header_files
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/defines.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts_traits.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/include/empi/time.hpp
 	${CONFIG_PATH}
 	)
 
@@ -96,8 +106,8 @@ if(ENABLE_TESTS)
 	add_subdirectory(test)
 endif()
 
-if(BUILD_EXAMPLES)
-	add_subdirectory(examples)
+if(BUILD_BENCHMARKS)
+	add_subdirectory(benchmarks)
 endif()
 
 message("//===---------------------------------------===//")
@@ -106,8 +116,8 @@ message("//===---------------------------------------===//")
 message("-> CMAKE_BUILD_TYPE:.................. ${CMAKE_BUILD_TYPE}")
 message("-> CMAKE_CXX_COMPILER:................ ${CMAKE_CXX_COMPILER}")
 message("-> ENABLE_UNCHECKED_FUNCTION:........ ${ENABLE_UNCHECKED_FUNCTION}")
-message("-> BUILD_EXAMPLES:................... ${BUILD_EXAMPLES}")
-if(BUILD_EXAMPLES)
+message("-> BUILD_BENCHMARKS:................... ${BUILD_BENCHMARKS}")
+if(BUILD_BENCHMARKS)
 message("---> BUILD_MPI_EXAMPLES:............. ${BUILD_MPI_EXAMPLES}")
 message("---> BUILD_UMPI_EXAMPLES:............ ${BUILD_UMPI_EXAMPLES}")
 message("---> BUILD_MPL_EXAMPLES:............. ${BUILD_MPL_EXAMPLES}")

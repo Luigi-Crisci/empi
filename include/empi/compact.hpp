@@ -15,8 +15,8 @@ namespace empi::layouts {
     Plain compact strategy for non-contiguous, sparse data
 */
 template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
-    typename idx_type, size_t... idx>
-auto compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor> &view) {
+    typename IdxType, size_t... Idx>
+auto compact(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
     using element_type = std::remove_cvref_t<typename Accessor::element_type>;
     auto ptr = new element_type[view.size()];
     empi::details::apply(view, [p = ptr](typename Accessor::reference e) mutable {
@@ -32,9 +32,9 @@ auto compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor
     If data are contiguous, and we have a trivial accessor we don't have to make any copies
 */
 template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
-    typename idx_type, size_t... idx>
+    typename IdxType, size_t... Idx>
     requires(is_trivial_view<Layout, Accessor>)
-auto constexpr compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor> &view) {
+auto constexpr compact(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
     using element_type = std::remove_cvref_t<typename Accessor::element_type>;
     std::unique_ptr<element_type, details::conditional_deleter<element_type>> uptr(view.data_handle());
     return uptr;

@@ -1,5 +1,6 @@
 #ifndef INCLUDE_EMPI_LAYOUTS_TRAITS
 #define INCLUDE_EMPI_LAYOUTS_TRAITS
+
 #include <empi/layouts.hpp>
 #include <empi/type_traits.hpp>
 #include <type_traits>

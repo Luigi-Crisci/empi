@@ -11,5 +11,7 @@
 #include <empi/message_group.hpp>
 #include <empi/message_grp_hdl.hpp>
 #include <empi/tag.hpp>
+#include <empi/time.hpp>
+
 
 #endif // __EMPI_H__

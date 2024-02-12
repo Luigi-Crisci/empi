@@ -1,14 +1,22 @@
 # Copyright (c) 2022-2023 University of Salerno, Italy. All rights reserved.
 
+# fetch latest argparse
+include(FetchContent)
+FetchContent_Declare(argparse
+                     GIT_REPOSITORY https://github.com/p-ranav/argparse.git)
+FetchContent_MakeAvailable(argparse)
+
 macro(create_example TARGET_NAME SRC_FILE)
-    add_executable(${TARGET_NAME} ${SRC_FILE})
-    target_link_libraries(${TARGET_NAME} INTERFACE empi)
+  set(EMPI_BENCHMARK_NAME ${TARGET_NAME})
+  add_executable(${TARGET_NAME} ${SRC_FILE})
+
+  target_compile_definitions(${TARGET_NAME} PRIVATE EMPI_BENCHMARK_NAME="${TARGET_NAME}")
+  target_link_libraries(${TARGET_NAME} empi argparse)
 endmacro()
 
 option(BUILD_MPI_EXAMPLES "Build MPI examples" OFF)
 option(BUILD_UMPI_EXAMPLES "Build UMPI examples" OFF)
 option(BUILD_MPL_EXAMPLES "Build MPL examples" OFF)
-
 
 add_subdirectory(all_reduce)
 add_subdirectory(bcast)

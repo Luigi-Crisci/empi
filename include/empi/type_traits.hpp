@@ -7,8 +7,7 @@
 
 #include <mpi.h>
 
-#include <concepts>
-#include <experimental/mdspan>
+#include <mdspan/mdspan.hpp>
 #include <tuple>
 #include <type_traits>
 
@@ -125,7 +124,7 @@ static constexpr bool is_same_template_v = is_same_template<T, K>::value;
 // Simple and incomplete concept to check if a type has static extent
 template<typename C>
 concept has_static_extent
-    = requires(C c) { (c.extent != std::dynamic_extent) || (std::is_array_v<C>) || (std::extent_v<C> > 0); };
+    = requires(C c) { (c.extent != Kokkos::dynamic_extent) || (std::is_array_v<C>) || (std::extent_v<C> > 0); };
 
 ///////////////// IS MDSPAN ////////////////
 

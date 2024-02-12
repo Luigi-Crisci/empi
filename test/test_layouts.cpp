@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <empi/empi.hpp>
+#include <iostream>
 
 namespace stdex = Kokkos;
 
@@ -45,28 +46,28 @@ TEST_CASE("Check extents type traits", "[mdspan]") {
     REQUIRE(std::is_same_v<trimmed_extent, Kokkos::extents<int, 1, 2, 3, 4>>);
 }
 
-struct S {
+struct s {
     int x;
     int y;
 };
 
 TEST_CASE("Create struct layout", "[mdspan|struct_layout]") {
-    std::vector<S> tmp(10);
+    std::vector<s> tmp(10);
     int count = 0;
-    std::transform(tmp.begin(), tmp.end(), tmp.begin(), [&count](S &s) {
+    std::transform(tmp.begin(), tmp.end(), tmp.begin(), [&count](s &s) {
         s.x = count++;
         s.y = count++;
         return s;
     });
-    auto proj = [](S &s) -> int & { return s.y; };
+    auto proj = [](s &s) -> int & { return s.y; };
     auto ext = Kokkos::extents(10);
     std::array stride{2};
     Kokkos::mdspan view{tmp.data(), Kokkos::layout_stride::mapping{ext, stride},
-        empi::layouts::struct_layout::struct_accessor<S, decltype(proj)>(std::move(proj))};
+        empi::layouts::struct_layout::struct_accessor<s, decltype(proj)>(std::move(proj))};
 
     for(int i = 0; i < 5; i += 1) {
-        // REQUIRE(view[i] == i*2+1);
-        // std::cout << view[i] << "\n";
+        REQUIRE(view[i] == i*2*stride[0]+1);
+        std::cout << view[i] << "\n";
     }
 }
 

@@ -17,9 +17,8 @@ int main(int argc, char **argv) {
     int myid, procs, n, err, max_iter, sleep_time, iter = 0, range = 100, pow_2;
     double t_start, t_end, t_start_inner, t_compact1, t_compact2, t_view1, t_view2, compact_time;
     double mpi_time = 0.0;
-    constexpr int SCALE = 1000000;
-    constexpr int WARMUP = 100;
-    long nBytes;
+    constexpr int scale = 1000000;
+    constexpr int warmup = 100;
     empi::Context ctx(&argc, &argv);
     auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
 
@@ -59,7 +58,7 @@ int main(int argc, char **argv) {
         message_group->run([&](empi::MessageGroupHandler<type> &mgh) {
             // Warmup
             mgh.barrier();
-            for(auto iter = 0; iter < WARMUP; iter++) mgh.Allgather(view, tiled_size, recv, tiled_size);
+            for(auto iter = 0; iter < warmup; iter++) mgh.Allgather(view, tiled_size, recv, tiled_size);
             mgh.barrier();
 
             t_start = MPI_Wtime();
@@ -72,8 +71,8 @@ int main(int argc, char **argv) {
 
             t_end = MPI_Wtime();
             if(message_group->rank() == 0) {
-                mpi_time = (t_end - t_compact2) * SCALE;
-                compact_time = (t_compact2 - t_start) * SCALE;
+                mpi_time = (t_end - t_compact2) * scale;
+                compact_time = (t_compact2 - t_start) * scale;
             }
         });
     };
@@ -88,7 +87,7 @@ int main(int argc, char **argv) {
     if(message_group->rank() == 0) {
         // cout << "\nData Size: " << nBytes << " bytes\n";
         cout << mpi_time << "\n";
-        cout << ((t_view2 - t_view1) * SCALE) << "\n";
+        cout << ((t_view2 - t_view1) * scale) << "\n";
         cout << compact_time << "\n";
         // cout << "Mean of communication times: " << Mean(mpi_time, num_restart)
         //      << "\n";

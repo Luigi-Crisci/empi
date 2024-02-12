@@ -26,9 +26,9 @@ struct column_layout {
         static_assert(Extents<K, Idx...>::rank() == 2);
         assert(col < extents.extent(1));
         using extent_type = decltype(details::remove_last(extents));
+
         extent_type new_extents(extents.extent(0));
         std::array stride{extents.extent(1)};
-
         column_layout_impl::mapping<extent_type> column_map(new_extents, stride);
 
         using T = std::ranges::range_value_t<decltype(view)>;
@@ -75,6 +75,7 @@ struct contiguous_layout {
 };
 
 struct struct_layout {
+
     template<typename ElementType>
     static constexpr auto default_access = [](ElementType &value) -> ElementType & { return value; };
 
@@ -115,12 +116,12 @@ struct tiled_layout {
     }
 
     // Hardwritten for 2D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... idx, typename Accessor>
+    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
     [[nodiscard]] static constexpr auto build(
-        std::ranges::forward_range auto &&view, Extents<T, idx...> extents, const Accessor &acc) {
+        std::ranges::forward_range auto &&view, Extents<T, Idx...> extents, const Accessor &acc) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using extent_type = Extents<T, idx...>;
+        using extent_type = Extents<T, Idx...>;
         static_assert(extent_type::rank() == 2);
 
         tiled_layout_impl::mapping<extent_type> tiled_mapping(extents);
@@ -144,7 +145,7 @@ struct tiled_layout {
             mapping &operator=(const mapping &) noexcept = default;
 
             mapping(const Extents &exts, size_type row_tile, size_type col_tile) noexcept
-                : extents_(exts), row_tile_size_(row_tile), col_tile_size_(col_tile) {
+                : m_extents(exts), m_row_tile_size(row_tile), m_col_tile_size(col_tile) {
                 // For simplicity, don't worry about negatives/zeros/etc.
                 assert(row_tile > 0);
                 assert(col_tile > 0);
@@ -156,41 +157,41 @@ struct tiled_layout {
                 /* requires */ (::std::is_constructible<extents_type, OtherExtents>::value))
             MDSPAN_CONDITIONAL_EXPLICIT((!::std::is_convertible<OtherExtents, extents_type>::value))
             constexpr mapping(const mapping<OtherExtents> &input_mapping) noexcept
-                : extents_(input_mapping.extents()), row_tile_size_(input_mapping.row_tile_size_),
-                  col_tile_size_(input_mapping.col_tile_size_) {}
+                : m_extents(input_mapping.extents()), m_row_tile_size(input_mapping.row_tile_size_),
+                  m_col_tile_size(input_mapping.col_tile_size_) {}
 
             //------------------------------------------------------------
             // Helper members (not part of the layout concept)
 
             constexpr size_type n_row_tiles() const noexcept {
-                return extents_.extent(0) / row_tile_size_ + size_type((extents_.extent(0) % row_tile_size_) != 0);
+                return m_extents.extent(0) / m_row_tile_size + size_type((m_extents.extent(0) % m_row_tile_size) != 0);
             }
 
             constexpr size_type n_column_tiles() const noexcept {
-                return extents_.extent(1) / col_tile_size_ + size_type((extents_.extent(1) % col_tile_size_) != 0);
+                return m_extents.extent(1) / m_col_tile_size + size_type((m_extents.extent(1) % m_col_tile_size) != 0);
             }
 
-            constexpr size_type tile_size() const noexcept { return row_tile_size_ * col_tile_size_; }
+            constexpr size_type tile_size() const noexcept { return m_row_tile_size * m_col_tile_size; }
 
             size_type tile_offset(size_type row, size_type col) const noexcept {
                 // This could probably be more efficient, but for example purposes...
-                auto col_tile = col / col_tile_size_;
-                auto row_tile = row / row_tile_size_;
+                auto col_tile = col / m_col_tile_size;
+                auto row_tile = row / m_row_tile_size;
                 // We're hard-coding this to *column-major* layout across tiles
                 return (col_tile * n_row_tiles() + row_tile) * tile_size();
             }
 
             size_type offset_in_tile(size_type row, size_type col) const noexcept {
-                auto t_row = row % row_tile_size_;
-                auto t_col = col % col_tile_size_;
+                auto t_row = row % m_row_tile_size;
+                auto t_col = col % m_col_tile_size;
                 // We're hard-coding this to *row-major* within tiles
-                return t_row * col_tile_size_ + t_col;
+                return t_row * m_col_tile_size + t_col;
             }
 
             //------------------------------------------------------------
             // Required members
 
-            constexpr const extents_type &extents() const { return extents_; }
+            constexpr const extents_type &extents() const { return m_extents; }
 
             constexpr size_type required_span_size() const noexcept {
                 return n_row_tiles() * n_column_tiles() * tile_size();
@@ -220,7 +221,7 @@ struct tiled_layout {
             static constexpr bool is_unique() noexcept { return true; }
             constexpr bool is_exhaustive() const noexcept {
                 // Only exhaustive if extents fit exactly into tile sizes...
-                return (extents_.extent(0) % row_tile_size_ == 0) && (extents_.extent(1) % col_tile_size_ == 0);
+                return (m_extents.extent(0) % m_row_tile_size == 0) && (m_extents.extent(1) % m_col_tile_size == 0);
             }
             // There are some circumstances where this is strided, but we're not
             // concerned about that optimization, so we're allowed to just return
@@ -228,19 +229,19 @@ struct tiled_layout {
             constexpr bool is_strided() const noexcept { return false; }
 
           private:
-            Extents extents_;
-            size_type row_tile_size_ = 1;
-            size_type col_tile_size_ = 1;
+            Extents m_extents;
+            size_type m_row_tile_size = 1;
+            size_type m_col_tile_size = 1;
         };
     };
 };
 
-//////////// Layouts for benchmarking purposes ///////////////
+// ##################### Layouts for benchmarking purposes ##################### //
 
 struct block_layout {
-    template<template<typename, size_t...> typename Extents, typename T, typename Size, typename Stride, size_t... idx>
+    template<template<typename, size_t...> typename Extents, typename T, typename Size, typename Stride, size_t... Idx>
     [[nodiscard]] static constexpr auto build(
-        std::ranges::forward_range auto &&view, Extents<T, idx...> extents, Size &&blocks, Stride &&strides) {
+        std::ranges::forward_range auto &&view, Extents<T, Idx...> extents, Size &&blocks, Stride &&strides) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
         using view_data_type = std::ranges::range_value_t<decltype(view)>;
@@ -249,13 +250,13 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
+    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
         std::size_t block, std::size_t stride,
         const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using extent_type = std::remove_cvref_t<Extents<T, idx...>>;
+        using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
         static_assert(extent_type::rank() == 1);
 
         tiled_block_layout::mapping<extent_type> block_mapping(extents, block, stride);
@@ -265,13 +266,13 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
+    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
         const std::span<std::size_t, 2> &blocks, std::size_t stride,
         const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using extent_type = std::remove_cvref_t<Extents<T, idx...>>;
+        using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
         static_assert(extent_type::rank() == 1);
 
         bucket_block_layout::mapping<extent_type> block_mapping(extents, blocks, stride);
@@ -281,13 +282,13 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
+    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
         std::size_t block, const std::span<std::size_t, 2> &strides,
         const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using extent_type = std::remove_cvref_t<Extents<T, idx...>>;
+        using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
         static_assert(extent_type::rank() == 1);
 
         block_block_layout::mapping<extent_type> block_mapping(extents, block, strides);
@@ -297,13 +298,13 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, idx...> extents,
+    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
         const std::span<std::size_t, 2> &block, const std::span<std::size_t, 2> &stride,
         const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using extent_type = std::remove_cvref_t<Extents<T, idx...>>;
+        using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
         static_assert(extent_type::rank() == 1);
 
         alternating_block_layout::mapping<extent_type> block_mapping(extents, block, stride);
@@ -330,25 +331,25 @@ struct block_layout {
             mapping &operator=(const mapping &) noexcept = default;
 
             constexpr mapping(const Extents &ext, std::size_t size, std::size_t stride)
-                : _extents(ext), _size(size), _stride(stride) {
-                assert(_size <= stride);
-                _offset = stride - _size;
+                : m_extents(ext), m_size(size), m_stride(stride) {
+                assert(m_size <= stride);
+                m_offset = stride - m_size;
             }
 
             // TODO: copy constructor
 
             // Mandatory member methods
 
-            constexpr const extents_type &extents() const { return _extents; }
+            constexpr const extents_type &extents() const { return m_extents; }
 
             constexpr size_type required_span_size() const noexcept {
                 // Kokkos::extents<int, 1> x;
-                return _extents.extent(0);
+                return m_extents.extent(0);
             }
 
-            template<class index>
-            constexpr size_type operator()(index idx) const noexcept {
-                return idx + (idx / _size * _offset);
+            template<class Index>
+            constexpr size_type operator()(Index idx) const noexcept {
+                return idx + (idx / m_size * m_offset);
             }
 
             // Mapping is always unique
@@ -373,10 +374,10 @@ struct block_layout {
             constexpr bool is_strided() const noexcept { return true; }
 
           private:
-            Extents _extents;
-            std::size_t _size{};
-            std::size_t _stride{};
-            std::size_t _offset{};
+            Extents m_extents;
+            std::size_t m_size{};
+            std::size_t m_stride{};
+            std::size_t m_offset{};
         };
     };
 
@@ -398,28 +399,28 @@ struct block_layout {
             mapping &operator=(const mapping &) noexcept = default;
 
             constexpr mapping(const Extents &ext, const std::size_t size, const std::span<std::size_t, 2> &strides)
-                : _extents(ext), _strides(strides), _size(size) {
-                assert(_strides[0] >= _size);
-                assert(_strides[1] >= _size);
-                _offsets[0] = strides[0] - size;
-                _offsets[1] = strides[1] - size;
+                : m_extents(ext), m_strides(strides), m_size(size) {
+                assert(m_strides[0] >= m_size);
+                assert(m_strides[1] >= m_size);
+                m_offsets[0] = strides[0] - size;
+                m_offsets[1] = strides[1] - size;
             }
 
             // Mandatory member methods
 
-            constexpr const extents_type &extents() const { return _extents; }
+            constexpr const extents_type &extents() const { return m_extents; }
 
             constexpr size_type required_span_size() const noexcept {
                 // Kokkos::extents<int, 1> x;
-                return _extents.extent(0);
+                return m_extents.extent(0);
             }
 
-            template<class index>
-            constexpr size_type operator()(index idx) const noexcept {
-                auto block = idx / _size;
+            template<class Index>
+            constexpr size_type operator()(Index idx) const noexcept {
+                auto block = idx / m_size;
                 auto num_blocks = block / 2;
                 auto remainder = block % 2;
-                return idx + (num_blocks + remainder) * _offsets[0] + num_blocks * _offsets[1];
+                return idx + (num_blocks + remainder) * m_offsets[0] + num_blocks * m_offsets[1];
             }
 
             // Mapping is always unique
@@ -444,10 +445,10 @@ struct block_layout {
             constexpr bool is_strided() const noexcept { return true; }
 
           private:
-            Extents _extents;
-            std::size_t _size;
-            std::span<std::size_t, 2> _strides;
-            std::array<std::size_t, 2> _offsets;
+            Extents m_extents;
+            std::size_t m_size;
+            std::span<std::size_t, 2> m_strides;
+            std::array<std::size_t, 2> m_offsets;
         };
     };
 
@@ -469,44 +470,44 @@ struct block_layout {
             mapping &operator=(const mapping &) noexcept = default;
 
             constexpr mapping(const Extents &ext, const std::span<size_t, 2> &sizes, size_t stride)
-                : _extents(ext), _sizes(sizes), _stride(stride) {
-                assert(_stride >= _sizes[0]);
-                assert(_stride >= _sizes[1]);
+                : m_extents(ext), m_sizes(sizes), m_stride(stride) {
+                assert(m_stride >= m_sizes[0]);
+                assert(m_stride >= m_sizes[1]);
                 // At least one block and stride
-                _diffs[0] = _stride - _sizes[0];
-                _diffs[1] = _stride - _sizes[1];
-                _sum_blocks += _sizes[0] + _sizes[1];
-                _sum_diffs += _diffs[0] + _diffs[1];
+                m_diffs[0] = m_stride - m_sizes[0];
+                m_diffs[1] = m_stride - m_sizes[1];
+                m_sum_blocks += m_sizes[0] + m_sizes[1];
+                m_sum_diffs += m_diffs[0] + m_diffs[1];
 
-                _offset = _diffs[0];
+                m_offset = m_diffs[0];
                 // std::inclusive_scan(diffs.begin(), diffs.end() - 1, offsets.begin());
-                _partial_blocks[0] = _sizes[0];
-                _partial_blocks[1] = _sizes[0] + _sizes[1];
+                m_partial_blocks[0] = m_sizes[0];
+                m_partial_blocks[1] = m_sizes[0] + m_sizes[1];
             }
 
             // Mandatory member methods
 
-            constexpr const extents_type &extents() const { return _extents; }
+            constexpr const extents_type &extents() const { return m_extents; }
 
             constexpr size_type required_span_size() const noexcept {
                 // Kokkos::extents<int, 1> x;
-                return _extents.extent(0);
+                return m_extents.extent(0);
             }
 
-            template<class index>
-            constexpr inline size_t pos_in_blocks(index idx) const noexcept {
-                return idx / _sum_blocks;
+            template<class Index>
+            constexpr inline size_t pos_in_blocks(Index idx) const noexcept {
+                return idx / m_sum_blocks;
             }
 
-            template<class index>
-            constexpr inline size_t offset_in_block(index idx) const noexcept {
-                const auto pos = idx % _sum_blocks;
-                return pos < _sizes[0] ? 0 : _offset;
+            template<class Index>
+            constexpr inline size_t offset_in_block(Index idx) const noexcept {
+                const auto pos = idx % m_sum_blocks;
+                return pos < m_sizes[0] ? 0 : m_offset;
             }
 
-            template<class index>
-            constexpr size_type operator()(index idx) const noexcept {
-                return idx + _sum_diffs * pos_in_blocks(idx) + offset_in_block(idx);
+            template<class Index>
+            constexpr size_type operator()(Index idx) const noexcept {
+                return idx + m_sum_diffs * pos_in_blocks(idx) + offset_in_block(idx);
             }
 
             // Mapping is always unique
@@ -531,14 +532,14 @@ struct block_layout {
             constexpr bool is_strided() const noexcept { return true; }
 
           private:
-            Extents _extents;
-            std::span<size_t> _sizes;
-            size_t _stride;
-            std::array<size_t, 2> _partial_blocks;
-            std::array<size_t, 2> _diffs;
-            size_t _offset;
-            size_t _sum_diffs{};
-            size_t _sum_blocks{};
+            Extents m_extents;
+            std::span<size_t> m_sizes;
+            size_t m_stride;
+            std::array<size_t, 2> m_partial_blocks;
+            std::array<size_t, 2> m_diffs;
+            size_t m_offset;
+            size_t m_sum_diffs{};
+            size_t m_sum_blocks{};
         };
     };
 
@@ -561,40 +562,40 @@ struct block_layout {
 
             constexpr mapping(
                 const Extents &ext, const std::span<size_t, 2> &sizes, const std::span<size_t, 2> &strides)
-                : _extents(ext), _sizes(sizes), _strides(strides), _sum_blocks(0), _sum_diffs(0) {
+                : m_extents(ext), m_sizes(sizes), m_strides(strides), m_sum_blocks(0), m_sum_diffs(0) {
                 // At least one block and stride
-                _diffs[0] = _strides[0] - _sizes[0];
-                _diffs[1] = _strides[1] - _sizes[1];
-                _sum_blocks += _sizes[0] + _sizes[1];
-                _sum_diffs += _diffs[0] + _diffs[1];
+                m_diffs[0] = m_strides[0] - m_sizes[0];
+                m_diffs[1] = m_strides[1] - m_sizes[1];
+                m_sum_blocks += m_sizes[0] + m_sizes[1];
+                m_sum_diffs += m_diffs[0] + m_diffs[1];
 
-                _offset = _diffs[0];
-                _partial_blocks[0] = _sizes[0];
-                _partial_blocks[1] = _sizes[0] + _sizes[1];
+                m_offset = m_diffs[0];
+                m_partial_blocks[0] = m_sizes[0];
+                m_partial_blocks[1] = m_sizes[0] + m_sizes[1];
             }
 
             // TODO: copy constructor
 
             // Mandatory member methods
 
-            constexpr const extents_type &extents() const { return _extents; }
+            constexpr const extents_type &extents() const { return m_extents; }
 
-            constexpr size_type required_span_size() const noexcept { return _extents.extent(0); }
+            constexpr size_type required_span_size() const noexcept { return m_extents.extent(0); }
 
-            template<class index>
-            constexpr inline size_t pos_in_blocks(index idx) const noexcept {
-                return idx / _sum_blocks;
+            template<class Index>
+            constexpr inline size_t pos_in_blocks(Index idx) const noexcept {
+                return idx / m_sum_blocks;
             }
 
-            template<class index>
-            constexpr inline size_t offset_in_block(index idx) const noexcept {
-                const auto pos = idx % _sum_blocks;
-                return pos < _sizes[0] ? 0 : _offset;
+            template<class Index>
+            constexpr inline size_t offset_in_block(Index idx) const noexcept {
+                const auto pos = idx % m_sum_blocks;
+                return pos < m_sizes[0] ? 0 : m_offset;
             }
 
-            template<class index>
-            constexpr size_type operator()(index idx) const noexcept {
-                return idx + _sum_diffs * pos_in_blocks(idx) + offset_in_block(idx);
+            template<class Index>
+            constexpr size_type operator()(Index idx) const noexcept {
+                return idx + m_sum_diffs * pos_in_blocks(idx) + offset_in_block(idx);
             }
 
             // Mapping is always unique
@@ -619,20 +620,20 @@ struct block_layout {
             constexpr bool is_strided() const noexcept { return true; }
 
           private:
-            Extents _extents;
-            std::span<size_t> _sizes;
-            std::span<size_t> _strides;
-            std::array<size_t, 2> _partial_blocks;
-            std::array<size_t, 2> _diffs;
-            size_t _offset;
-            size_t _sum_diffs{};
-            size_t _sum_blocks{};
+            Extents m_extents;
+            std::span<size_t> m_sizes;
+            std::span<size_t> m_strides;
+            std::array<size_t, 2> m_partial_blocks;
+            std::array<size_t, 2> m_diffs;
+            size_t m_offset;
+            size_t m_sum_diffs{};
+            size_t m_sum_blocks{};
         };
     };
 
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
-        typename idx_type, size_t... idx>
-    static constexpr auto compact(const Kokkos::mdspan<T, Extents<idx_type, idx...>, Layout, Accessor> &view) {
+        typename IdxType, size_t... Idx>
+    static constexpr auto compact(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
         using element_type = std::remove_cvref_t<typename Accessor::element_type>;
 
         auto ptr = new element_type[view.size()];
@@ -651,9 +652,9 @@ struct block_layout {
         };
 
         if constexpr(std::is_same_v<Layout, bucket_block_layout> || std::is_same_v<Layout, alternating_block_layout>) {
-            return compact_f(mapping._sizes);
+            return compact_f(mapping.m_sizes);
         } else {
-            return compact_f(std::span<const std::size_t>(&mapping._size, 1));
+            return compact_f(std::span<const std::size_t>(&mapping.m_size, 1));
         }
     }
 };

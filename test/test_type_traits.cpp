@@ -10,7 +10,7 @@
 namespace stdex = Kokkos;
 
 TEST_CASE("is_mdspan", "[type_traits]") {
-    using namespaceKokkos;
+    using namespace Kokkos;
     using extent_type = dextents<int, 1>;
 
     REQUIRE_FALSE(empi::details::is_mdspan<int>);
@@ -24,7 +24,7 @@ TEST_CASE("is_mdspan", "[type_traits]") {
 
 
 TEST_CASE("is_contiguous_layout", "[type_traits][layouts]") {
-    using namespaceKokkos;
+    using namespace Kokkos;
 
     REQUIRE(empi::layouts::is_contiguous_layout<Kokkos::layout_right>);
     REQUIRE(empi::layouts::is_contiguous_layout<Kokkos::layout_left>);
@@ -35,7 +35,7 @@ TEST_CASE("is_contiguous_layout", "[type_traits][layouts]") {
 }
 
 TEST_CASE("has_trivial_accessor", "[type_traits][layouts]") {
-    using namespaceKokkos;
+    using namespace Kokkos;
     struct S {
         int x;
         int y;

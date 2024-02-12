@@ -6,7 +6,6 @@
 #define EMPI_PROJECT_INCLUDE_EMPI_DATATYPE_HPP_
 
 //@HEADER
-#include "experimental/__p0009_bits/extents.hpp" // for dextents
 #include <mdspan/mdspan.hpp>
 
 #include <empi/type_traits.hpp>
@@ -17,7 +16,6 @@
 namespace empi::details {
 
 static constexpr bool no_status = false;
-
 
 template<typename T>
 struct mpi_type_impl {
