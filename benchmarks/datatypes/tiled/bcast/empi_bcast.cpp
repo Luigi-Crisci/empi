@@ -8,7 +8,7 @@
 #include <mpi.h>
 #include <unistd.h>
 
-#include "../../utils.hpp"
+#include "../../../include/utils.hpp"
 
 constexpr int WARMUP = 100;
 

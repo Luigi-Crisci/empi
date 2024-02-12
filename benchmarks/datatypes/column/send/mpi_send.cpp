@@ -6,7 +6,7 @@
 
 #include "../../../include/benchmark.hpp"
 #include "../../../include/bench_templates.hpp"
-#include "../../utils.hpp"
+#include "../../../include/utils.hpp"
 #include "empi/datatype.hpp"
 
 using namespace std;

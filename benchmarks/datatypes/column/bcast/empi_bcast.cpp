@@ -8,7 +8,6 @@
 
 #include "../../../include/bench_templates.hpp"
 #include "../../../include/benchmark.hpp"
-#include "../../utils.hpp"
 
 template<typename T>
 struct empi_send : public empi_benchmark<T> {
