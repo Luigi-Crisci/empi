@@ -5,3 +5,4 @@ tmp/cmake-build-debug/
 *build*/
 .cache/
 */__pycache__/
+.clangd
