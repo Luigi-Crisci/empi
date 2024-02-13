@@ -1,60 +1,51 @@
-#include <chrono>
-#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <empi/empi.hpp>
-#include <iostream>
 #include <malloc.h>
 #include <mpi.h>
 #include <unistd.h>
 
 #include <argparse/argparse.hpp>
 
-#include "../../../include/utils.hpp"
+#include "../../../include/benchmark.hpp"
+#include "../../../include/bench_templates.hpp"
 
 using namespace std;
 
+template<typename T>
+struct empi_ping_pong : public empi_benchmark<T>{
+    using base = empi_benchmark<T>;
+    using base::base;
+    using base::m_ctx;
+    using base::m_message_group;
 
-int main(int argc, char **argv) {
-    int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100, pow_2;
-    double t_start, t_end, t_compact1, t_compact2, t_view1, t_view2, compact_time;
-    double mpi_time = 0.0;
-    constexpr int SCALE = 1000000;
-    constexpr int WARMUP = 100;
-    empi::Context ctx(&argc, &argv);
+    void run(benchmark_args& args){
+        const auto rank = m_message_group->rank();
+        const size_t size = args.size;
+        const size_t iterations = args.iterations;
+        const size_t warmup_runs = args.warmup_runs;
+        auto &times = args.times;
+        MPI_Status status;
+        size_t A = args.parser.get<size_t>("A");
+        size_t B = args.parser.get<size_t>("B");
+        auto tiled_size = size / B * A;
 
-    // ------ PARAMETER SETUP -----------
-    n = atoi(argv[1]);
-    max_iter = atoi(argv[2]);
+        std::vector<T> data(size);
+        std::iota(data.begin(), data.end(), 0);
+        std::vector<T> res(tiled_size);
+        res.reserve(tiled_size);
 
-    auto message_group = ctx.create_message_group(MPI_COMM_WORLD);
-    MPI_Status status;
-    const int rank = message_group->rank();
-
-    // Constucting layout
-    size_t A = std::stoi(argv[3]);
-    size_t B = std::stoi(argv[4]);
-    string datatype = argv[5];
-
-    auto run_bench = [&](auto data_t_v) {
-        using type = decltype(data_t_v);
-        n = n / sizeof(type);
-        assert(n > 0);
-        std::vector<type> myarr(n);
-        auto tiled_size = n / B * A;
-
-        t_view1 = MPI_Wtime();
+        times.view_time[benchmark_timer::start] = empi::wtime();
         Kokkos::dextents<size_t, 1> ext(tiled_size);
-        auto view = empi::layouts::block_layout::build(myarr, ext, A, B);
-        t_view2 = MPI_Wtime();
+        auto view = empi::layouts::block_layout::build(data, ext, A, B);
+        times.view_time[benchmark_timer::end] = empi::wtime();
 
-        std::vector<type> res(tiled_size);
 
-        message_group->run([&](empi::MessageGroupHandler<type, empi::Tag{0}, empi::NOSIZE> &mgh) {
+        m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
             // Warm up
             mgh.barrier();
 
-            for(auto iter = 0; iter < WARMUP; iter++) {
+            for(auto iter = 0; iter < warmup_runs; iter++) {
                 if(rank == 0) {
                     mgh.send(view, 1, tiled_size);
                     mgh.recv(res, 1, tiled_size, status);
@@ -65,12 +56,11 @@ int main(int argc, char **argv) {
             }
             mgh.barrier();
 
-            t_start = MPI_Wtime();
+            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
             auto ptr = empi::layouts::block_layout::compact(view); 
+            times.compact_time[benchmark_timer::end] = empi::wtime();
 
-            t_compact2 = MPI_Wtime();
-
-            for(auto iter = 0; iter < max_iter; iter++) {
+            for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
                     mgh.send(ptr.get(), 1, tiled_size);
                     mgh.recv(res, 1, tiled_size, status);
@@ -80,34 +70,20 @@ int main(int argc, char **argv) {
                 }
             }
 
-            message_group->barrier();
-
-            t_end = MPI_Wtime();
-            if(message_group->rank() == 0) {
-                mpi_time = (t_end - t_compact2) * SCALE;
-                compact_time = (t_compact2 - t_start) * SCALE;
-            }
+            m_message_group->barrier();
         });
-    };
-
-    if(datatype == "basic") {
-        run_bench(char());
-    } else {
-        run_bench(basic_struct{});
     }
+};
 
-    message_group->barrier();
 
-    if(message_group->rank() == 0) {
-        // cout << "\nData Size: " << nBytes << " bytes\n";
-        cout << mpi_time << "\n";
-        cout << ((t_view2 - t_view1) * SCALE) << "\n";
-        cout << compact_time << "\n";
-        // cout << "Mean of communication times: " << Mean(mpi_time, num_restart)
-        //      << "\n";
-        // cout << "Median of communication times: " << Median(mpi_time, num_restart)
-        //      << "\n";
-        // 	Print_times(mpi_time, num_restart);
-    }
+int main(int argc, char **argv) {
+    benchmark_manager<empi_ping_pong<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
+    auto &parser = bench_app.get_parser();
+    parser.add_argument("-A").help("Stride A").scan<'i', size_t>().required();
+    parser.add_argument("-B").help("Stride B (B > A)").scan<'i', size_t>().required();
+
+    bench_app.run_benchmark();
+
     return 0;
-} // end main
+}
+

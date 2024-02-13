@@ -54,8 +54,8 @@ struct empi_send : public empi_benchmark<T> {
 
             for(auto iter = 0; iter < iterations; iter++) { mgh.Bcast(ptr.get(), 0, num_rows); }
 
-            m_message_group->barrier();
             times.mpi_time[benchmark_timer::end] = empi::wtime();
+            m_message_group->barrier();
 
             // Verify
             for(auto i = 0; i < view.size(); i++) {

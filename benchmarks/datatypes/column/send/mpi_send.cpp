@@ -65,8 +65,8 @@ struct mpi_send : public mpi_benchmark<T>{
             }
         }
 
-        MPI_Barrier(MPI_COMM_WORLD);
         times.mpi_time[benchmark_timer::end] = MPI_Wtime();
+        MPI_Barrier(MPI_COMM_WORLD);
 
         if(rank == 1) {
             // Verify

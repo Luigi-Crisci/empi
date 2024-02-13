@@ -68,8 +68,8 @@ struct empi_send : public empi_benchmark<T>{
                 }
             }
 
-            m_message_group->barrier();
             times.mpi_time[benchmark_timer::end] = empi::wtime();
+            m_message_group->barrier();
 
             // Verify
             if(rank == 1) {
