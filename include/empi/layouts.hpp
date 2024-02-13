@@ -13,16 +13,18 @@ namespace empi::layouts {
 
 struct column_layout {
     // Hardwritten for 2D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename K, size_t... Idx>
-    [[nodiscard]] static auto build(std::ranges::forward_range auto &&view, Extents<K, Idx...> extents, size_t col) {
+    template<typename Range, template<typename, size_t...> typename Extents, typename K, size_t... Idx>
+    requires std::ranges::forward_range<Range>
+    [[nodiscard]] static auto build(Range &&view, Extents<K, Idx...> extents, size_t col) {
         return column_layout::build(
-            view, extents, col, Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>());
+            view, extents, col, Kokkos::default_accessor<std::ranges::range_value_t<Range>>());
     }
 
     // Hardwritten for 2D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename K, size_t... Idx, typename Accessor>
+    template<typename Range, template<typename, size_t...> typename Extents, typename K, size_t... Idx, typename Accessor>
+    requires std::ranges::forward_range<Range>
     [[nodiscard]] static auto build(
-        std::ranges::forward_range auto &&view, Extents<K, Idx...> extents, size_t col, const Accessor &acc) {
+        Range &&view, Extents<K, Idx...> extents, size_t col, const Accessor &acc) {
         static_assert(Extents<K, Idx...>::rank() == 2);
         assert(col < extents.extent(1));
         using extent_type = decltype(details::remove_last(extents));
@@ -109,10 +111,12 @@ auto make_struct_accessor(Callable &&c) {
 
 struct tiled_layout {
     // Hardwritten for 2D layouts, will change later...
+    template<typename Range>
+    requires std::ranges::forward_range<Range>
     [[nodiscard]] static constexpr auto build(
-        std::ranges::forward_range auto &&view, const size_t row, const size_t col) {
+        Range &&view, const size_t row, const size_t col) {
         return tiled_layout::build(view, Kokkos::dextents<size_t, 2>(row, col),
-            Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>());
+            Kokkos::default_accessor<std::ranges::range_value_t<Range>>());
     }
 
     // Hardwritten for 2D layouts, will change later...
@@ -239,21 +243,23 @@ struct tiled_layout {
 // ##################### Layouts for benchmarking purposes ##################### //
 
 struct block_layout {
-    template<template<typename, size_t...> typename Extents, typename T, typename Size, typename Stride, size_t... Idx>
+    template<typename Range, template<typename, size_t...> typename Extents, typename T, typename Size, typename Stride, size_t... Idx>
+    requires std::ranges::forward_range<Range>
     [[nodiscard]] static constexpr auto build(
-        std::ranges::forward_range auto &&view, Extents<T, Idx...> extents, Size &&blocks, Stride &&strides) {
+        Range &&view, Extents<T, Idx...> extents, Size &&blocks, Stride &&strides) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
-        using view_data_type = std::ranges::range_value_t<decltype(view)>;
+        using view_data_type = std::ranges::range_value_t<Range>;
         return build(view, extents, std::forward<Size>(blocks), std::forward<Stride>(strides),
             Kokkos::default_accessor<view_data_type>());
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
+    template<typename Range, template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    requires std::ranges::forward_range<Range>
+    [[nodiscard]] static constexpr auto build(Range &&view, Extents<T, Idx...> extents,
         std::size_t block, std::size_t stride,
-        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
+        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<Range>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
         using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
@@ -266,10 +272,11 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
+    template<typename Range, template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    requires std::ranges::forward_range<Range>
+    [[nodiscard]] static constexpr auto build(Range &&view, Extents<T, Idx...> extents,
         const std::span<std::size_t, 2> &blocks, std::size_t stride,
-        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
+        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<Range>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
         using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
@@ -282,10 +289,11 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
+    template<typename Range, template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    requires std::ranges::forward_range<Range>
+    [[nodiscard]] static constexpr auto build(Range&& view, Extents<T, Idx...> extents,
         std::size_t block, const std::span<std::size_t, 2> &strides,
-        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
+        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<Range>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
         using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
@@ -298,10 +306,11 @@ struct block_layout {
     }
 
     // Hardwritten for 1D layouts, will change later...
-    template<template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
-    [[nodiscard]] static constexpr auto build(std::ranges::forward_range auto &&view, Extents<T, Idx...> extents,
+    template<typename Range, template<typename, size_t...> typename Extents, typename T, size_t... Idx, typename Accessor>
+    requires std::ranges::forward_range<Range>
+    [[nodiscard]] static constexpr auto build(Range &&view, Extents<T, Idx...> extents,
         const std::span<std::size_t, 2> &block, const std::span<std::size_t, 2> &stride,
-        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<decltype(view)>>()) {
+        const Accessor &acc = Kokkos::default_accessor<std::ranges::range_value_t<Range>>()) {
         // TODO: Check sizes against view
         // TODO: Tiled layout should work on every dimension
         using extent_type = std::remove_cvref_t<Extents<T, Idx...>>;
