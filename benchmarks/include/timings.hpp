@@ -95,6 +95,7 @@ struct time_consumer {
     void consume_results() const {
         std::vector<double> mpi_times;
         std::vector<double> compact_times;
+        std::vector<double> communication_times;
         std::vector<double> view_times;
 
         // Todo this should be generalized
@@ -103,11 +104,13 @@ struct time_consumer {
             mpi_times.push_back(mpi_time);
             compact_times.push_back(compact_time);
             view_times.push_back(view_time);
+            communication_times.push_back(mpi_time - compact_time);
         });
 
 
         std::cout << std::fixed << std::setprecision(8);
-        emit_results(mpi_times, "MPI time");
+        emit_results(mpi_times, "MPI time (communication + datatype build)");
+        emit_results(communication_times, "MPI communication time");
         emit_results(compact_times, "Datatype compact time");
         emit_results(view_times, "Datatype build time");
         if(is_master()) { std::cout << "---------------------------" << std::endl; }
