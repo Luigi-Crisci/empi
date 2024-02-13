@@ -10,6 +10,28 @@
 #include <tuple>
 #include <vector>
 
+enum time_scale { seconds = 1, milliseconds = 1000, microseconds = 1000000, nanoseconds = 1000000000 };
+
+static auto string_to_time_scale(std::string scale) {
+    std::transform(scale.begin(), scale.end(), scale.begin(), ::tolower);
+    if(scale == "s" || scale == "seconds") { return time_scale::seconds; }
+    if(scale == "ms" || scale == "milliseconds") { return time_scale::milliseconds; }
+    if(scale == "us" || scale == "microseconds") { return time_scale::microseconds; }
+    if(scale == "ns" || scale == "nanoseconds") { return time_scale::nanoseconds; }
+    throw std::runtime_error("Invalid time scale");
+}
+
+static auto time_scale_to_string(time_scale scale) {
+    switch(scale) {
+        case time_scale::seconds: return "seconds";
+        case time_scale::milliseconds: return "milliseconds";
+        case time_scale::microseconds: return "microseconds";
+        case time_scale::nanoseconds: return "nanoseconds";
+    }
+    throw std::runtime_error("Invalid time scale");
+}
+
+
 struct benchmark_timer {
     constexpr benchmark_timer()
         : mpi_time{0, std::numeric_limits<double>::min()}, compact_time{0, std::numeric_limits<double>::min()},
@@ -31,9 +53,11 @@ struct benchmark_timer {
 };
 
 struct time_consumer {
-    time_consumer() = default;
+    time_consumer(time_scale scale = time_scale::seconds) : m_scale(static_cast<double>(scale)) {}
 
     void add(benchmark_timer t) { m_times.push_back(t); }
+
+    void set_time_scale(time_scale scale) { m_scale = static_cast<double>(scale); }
 
     void emit_results(std::vector<double> &old_times, std::string metric_name) const {
         // Obtain the slowest processor for each iteration
@@ -55,12 +79,13 @@ struct time_consumer {
             double sq_sum = std::inner_product(times.begin(), times.end(), times.begin(), 0.0);
             double stdev_time = std::sqrt(sq_sum / size - mean * mean);
 
-            std::cout << metric_name << "\n";
-            std::cout << "\t- Maximum: " << max_time << "s\n";
-            std::cout << "\t- Minimum: " << min_time << "s\n";
-            std::cout << "\t- Mean: " << mean << "s\n";
-            std::cout << "\t- Median: " << median_time << "s\n";
-            std::cout << "\t- Standard deviation: " << stdev_time << "s\n";
+            std::cout << metric_name << ":\n";
+            const auto print_time_scaled = [&](double time) { return time * m_scale; };
+            std::cout << "\t- Maximum: " << print_time_scaled(max_time) << "s\n";
+            std::cout << "\t- Minimum: " << print_time_scaled(min_time) << "s\n";
+            std::cout << "\t- Mean: " << print_time_scaled(mean) << "s\n";
+            std::cout << "\t- Median: " << print_time_scaled(median_time) << "s\n";
+            std::cout << "\t- Standard deviation: " << print_time_scaled(stdev_time) << "s\n";
         }
     }
 
@@ -88,5 +113,5 @@ struct time_consumer {
 
   private:
     std::vector<benchmark_timer> m_times;
-    static constexpr size_t scale = 1000000;
+    double m_scale;
 };

@@ -4,7 +4,6 @@
 #include "timings.hpp"
 #include "utils.hpp"
 #include <argparse/argparse.hpp>
-#include <memory>
 
 struct benchmark_args {
     benchmark_args(size_t size, size_t iterations, argparse::ArgumentParser &parser, int argc, char **argv)
@@ -35,6 +34,10 @@ class benchmark_manager {
             .scan<'i', size_t>();
 
         m_parser.add_argument("--runs").help("Number of runs to perform").scan<'i', size_t>().default_value<size_t>(5);
+        m_parser.add_argument("--scale")
+            .help("Scale to use for time measurements. Default is seconds")
+            .action([](const std::string &value) { return string_to_time_scale(value); })
+            .default_value(time_scale::seconds);
     }
 
     argparse::ArgumentParser &get_parser() { return m_parser; }
@@ -52,7 +55,8 @@ class benchmark_manager {
         const auto iterations = m_parser.get<size_t>("-i");
         const auto runs = m_parser.get<size_t>("--runs");
         const auto warmup_runs = m_parser.get<size_t>("--warmup-runs");
-
+        const auto scale = m_parser.get<time_scale>("--scale");
+        m_times.set_time_scale(scale);
 
         Benchmark m_benchmark{m_argc, m_argv};
         if(is_master()) {
@@ -62,6 +66,7 @@ class benchmark_manager {
             std::cout << "\t- Iterations: " << iterations << std::endl;
             std::cout << "\t- Runs: " << runs << std::endl;
             std::cout << "\t- Warmup runs: " << warmup_runs << std::endl;
+            std::cout << "\t- Time scale: " << time_scale_to_string(scale) << std::endl;
             std::cout << "---------------------------" << std::endl;
         }
         for(auto i = 0; i < runs + warmup_runs; i++) {
