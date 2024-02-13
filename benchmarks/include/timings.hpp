@@ -1,9 +1,11 @@
 #pragma once
+#include "utils.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <mpi.h> // Include MPI Reduce
 #include <numeric>
 #include <tuple>
 #include <vector>
@@ -33,25 +35,33 @@ struct time_consumer {
 
     void add(benchmark_timer t) { m_times.push_back(t); }
 
-    void emit_results(std::vector<double> &times, std::string metric_name) const {
-        // Calculate median
-        const size_t size = times.size();
-        std::sort(times.begin(), times.end());
-        
-        const double median_time = size % 2 == 0 ? (times[size / 2 - 1] + times[size / 2]) / 2 : times[size / 2];
-        const double max_time = *(times.end() - 1);
-        const double min_time = *times.begin();
+    void emit_results(std::vector<double> &old_times, std::string metric_name) const {
+        // Obtain the slowest processor for each iteration
+        std::vector<double> times(old_times.size());
+        for(int i = 0; i < old_times.size(); i++) {
+            MPI_Reduce(&old_times[i], &times[i], 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        }
 
-        // Calculate standard deviation
-        const double mean = std::accumulate(times.begin(), times.end(), 0.0) / size;
-        const double sq_sum = std::inner_product(times.begin(), times.end(), times.begin(), 0.0);
-        const double stdev_time = std::sqrt(sq_sum / size - mean * mean);
+        if(is_master()) {
+            // Calculate median
+            const size_t size = times.size();
+            std::sort(times.begin(), times.end());
+            double min_time = *times.begin();
+            double max_time = *(times.end() - 1);
+            double median_time = size % 2 == 0 ? (times[size / 2 - 1] + times[size / 2]) / 2 : times[size / 2];
 
-        std::cout << metric_name << "\n";
-        std::cout << "\t- Maximum: " << max_time <<"s\n"; 
-        std::cout << "\t- Minimum: " << min_time <<"s\n"; 
-        std::cout << "\t- Median: " << median_time <<"s\n"; 
-        std::cout << "\t- Standard deviation: " << stdev_time <<"s\n"; 
+            // Calculate standard deviation
+            double mean = std::accumulate(times.begin(), times.end(), 0.0) / size;
+            double sq_sum = std::inner_product(times.begin(), times.end(), times.begin(), 0.0);
+            double stdev_time = std::sqrt(sq_sum / size - mean * mean);
+
+            std::cout << metric_name << "\n";
+            std::cout << "\t- Maximum: " << max_time << "s\n";
+            std::cout << "\t- Minimum: " << min_time << "s\n";
+            std::cout << "\t- Mean: " << mean << "s\n";
+            std::cout << "\t- Median: " << median_time << "s\n";
+            std::cout << "\t- Standard deviation: " << stdev_time << "s\n";
+        }
     }
 
     void consume_results() const {
@@ -66,15 +76,13 @@ struct time_consumer {
             compact_times.push_back(compact_time);
             view_times.push_back(view_time);
         });
-        
-        const auto default_precision{std::cout.precision()};
-        std::cout << std::setprecision(3);
+
+
+        std::cout << std::fixed << std::setprecision(8);
         emit_results(mpi_times, "MPI time");
         emit_results(compact_times, "Datatype compact time");
         emit_results(view_times, "Datatype build time");
-        std::cout << std::setprecision(default_precision);
-        std::cout << "---------------------------" << std::endl;
-
+        if(is_master()) { std::cout << "---------------------------" << std::endl; }
     }
 
 

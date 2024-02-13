@@ -54,32 +54,28 @@ class benchmark_manager {
         const auto warmup_runs = m_parser.get<size_t>("--warmup-runs");
 
 
-        int rank;
-        {
-            Benchmark m_benchmark{m_argc, m_argv};
-            rank = get_rank();
-            if(is_master()) {
-                std::cout << "###### Benchmark: " << Benchmark::get_name() << " ######" << std::endl;
-                std::cout << "Configuration: " << std::endl;
-                std::cout << "\t- Num elements: " << size << std::endl;
-                std::cout << "\t- Iterations: " << iterations << std::endl;
-                std::cout << "\t- Runs: " << runs << std::endl;
-                std::cout << "\t- Warmup runs: " << warmup_runs << std::endl;
-                std::cout << "---------------------------" << std::endl;
-            }
-            for(auto i = 0; i < runs + warmup_runs; i++) {
-                benchmark_args args = {size, iterations, m_parser, m_argc, m_argv};
-                MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks start at the same time (hopefully)
-                m_benchmark.run(args);
-                if(is_master() && i >= warmup_runs) { // Skip warmup runs
-                    m_times.add(args.times);
-                }
+        Benchmark m_benchmark{m_argc, m_argv};
+        if(is_master()) {
+            std::cout << "###### Benchmark: " << Benchmark::get_name() << " ######" << std::endl;
+            std::cout << "Configuration: " << std::endl;
+            std::cout << "\t- Num elements: " << size << std::endl;
+            std::cout << "\t- Iterations: " << iterations << std::endl;
+            std::cout << "\t- Runs: " << runs << std::endl;
+            std::cout << "\t- Warmup runs: " << warmup_runs << std::endl;
+            std::cout << "---------------------------" << std::endl;
+        }
+        for(auto i = 0; i < runs + warmup_runs; i++) {
+            benchmark_args args = {size, iterations, m_parser, m_argc, m_argv};
+            MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks start at the same time (hopefully)
+            m_benchmark.run(args);
+            if(i >= warmup_runs) { // Skip warmup runs
+                m_times.add(args.times);
             }
         }
 
         // MPI_Finalize does not specify how many threads will run after it is called
         // therefore we need to ensure that just the main thread calls the consume_results
-        if(rank == 0) { m_times.consume_results(); }
+        m_times.consume_results();
     }
 
 
