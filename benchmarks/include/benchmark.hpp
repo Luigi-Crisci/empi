@@ -7,15 +7,13 @@
 #include <memory>
 
 struct benchmark_args {
-    benchmark_args(
-        size_t size, size_t iterations, size_t warmup_runs, argparse::ArgumentParser &parser, int argc, char **argv)
-        : size(size), iterations(iterations), warmup_runs(warmup_runs), parser(parser) {}
+    benchmark_args(size_t size, size_t iterations, argparse::ArgumentParser &parser, int argc, char **argv)
+        : size(size), iterations(iterations), parser(parser) {}
 
     benchmark_args(const benchmark_args &args) = delete;
 
     size_t size;
     size_t iterations;
-    size_t warmup_runs;
     benchmark_timer times{};
     argparse::ArgumentParser &parser;
 };
@@ -55,6 +53,7 @@ class benchmark_manager {
         const auto runs = m_parser.get<size_t>("--runs");
         const auto warmup_runs = m_parser.get<size_t>("--warmup-runs");
 
+
         int rank;
         {
             Benchmark m_benchmark{m_argc, m_argv};
@@ -68,11 +67,13 @@ class benchmark_manager {
                 std::cout << "\t- Warmup runs: " << warmup_runs << std::endl;
                 std::cout << "---------------------------" << std::endl;
             }
-            for(auto i = 0; i < runs; i++) {
-                benchmark_args args = {size, iterations, warmup_runs, m_parser, m_argc, m_argv};
+            for(auto i = 0; i < runs + warmup_runs; i++) {
+                benchmark_args args = {size, iterations, m_parser, m_argc, m_argv};
                 MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks start at the same time (hopefully)
                 m_benchmark.run(args);
-                if(is_master()) { m_times.add(args.times); }
+                if(is_master() && i >= warmup_runs) { // Skip warmup runs
+                    m_times.add(args.times);
+                }
             }
         }
 

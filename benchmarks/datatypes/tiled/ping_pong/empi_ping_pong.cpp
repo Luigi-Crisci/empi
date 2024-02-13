@@ -23,7 +23,6 @@ struct empi_ping_pong : public empi_benchmark<T>{
         const auto rank = m_message_group->rank();
         const size_t size = args.size;
         const size_t iterations = args.iterations;
-        const size_t warmup_runs = args.warmup_runs;
         auto &times = args.times;
         MPI_Status status;
         size_t A = args.parser.get<size_t>("A");
@@ -42,18 +41,6 @@ struct empi_ping_pong : public empi_benchmark<T>{
 
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            // Warm up
-            mgh.barrier();
-
-            for(auto iter = 0; iter < warmup_runs; iter++) {
-                if(rank == 0) {
-                    mgh.send(view, 1, tiled_size);
-                    mgh.recv(res, 1, tiled_size, status);
-                } else {
-                    mgh.recv(view, 0, tiled_size, status);
-                    mgh.send(res, 0, tiled_size);
-                }
-            }
             mgh.barrier();
 
             times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
@@ -69,8 +56,7 @@ struct empi_ping_pong : public empi_benchmark<T>{
                     mgh.send(res, 0, tiled_size);
                 }
             }
-
-            m_message_group->barrier();
+            //TODO: Veryfy
         });
     }
 };

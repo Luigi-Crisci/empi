@@ -20,7 +20,6 @@ struct mpi_send : public mpi_benchmark<T> {
         int rank;
         const size_t num_rows = args.size;
         const size_t iterations = args.iterations;
-        const size_t warmup_runs = args.warmup_runs;
         constexpr size_t num_columns = 4;
         constexpr size_t col_to_send = 2;
         size_t view_size = num_columns * num_rows;
@@ -43,21 +42,13 @@ struct mpi_send : public mpi_benchmark<T> {
         times.view_time[benchmark_timer::end] = MPI_Wtime();
         int column_size = 1;
 
-
-        // Warmup
         MPI_Barrier(MPI_COMM_WORLD);
-        for(auto iter = 0; iter < warmup_runs; iter++) {
-            MPI_Bcast(data.data() + col_to_send, column_size, column_datatype, 0, MPI_COMM_WORLD);
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-
         times.mpi_time[benchmark_timer::start] = MPI_Wtime();
         for(auto iter = 0; iter < iterations; iter++) {
             MPI_Bcast(data.data() + col_to_send, column_size, column_datatype, 0, MPI_COMM_WORLD);
         }
 
         times.mpi_time[benchmark_timer::end] = MPI_Wtime();
-        MPI_Barrier(MPI_COMM_WORLD);
 
         // Verify
         for(size_t i = col_to_send, j = 0; i < view_size; i+=num_columns, j++) {
@@ -66,7 +57,6 @@ struct mpi_send : public mpi_benchmark<T> {
                 std::exit(-1);
             }
         }
-        MPI_Barrier(MPI_COMM_WORLD);
     }
 };
 

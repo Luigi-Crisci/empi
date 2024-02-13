@@ -20,7 +20,6 @@ struct mpi_send : public mpi_benchmark<T>{
         int rank;
         const size_t num_rows = args.size;
         const size_t iterations = args.iterations;
-        const size_t warmup_runs = args.warmup_runs;
         constexpr size_t num_columns = 4;
         constexpr size_t col_to_send = 2;
         size_t view_size = num_columns * num_rows;
@@ -41,21 +40,11 @@ struct mpi_send : public mpi_benchmark<T>{
         times.view_time[benchmark_timer::start] = MPI_Wtime();
         auto raw_datatype = empi::details::mpi_type<T>::get_type();
         bl_column(&column_datatype, num_rows, num_columns, raw_datatype);
+        constexpr int column_size = 1;
         times.view_time[benchmark_timer::end] = MPI_Wtime();
 
-        int column_size = 1;
-
-        // Warmup
+       
         MPI_Barrier(MPI_COMM_WORLD);
-        for(auto iter = 0; iter < warmup_runs; iter++) {
-            if(rank == 0) {
-                MPI_Send(data.data() + col_to_send, column_size, column_datatype, 1, 0, MPI_COMM_WORLD);
-            } else { // Node rank 1
-                MPI_Recv(rec_column.data(), num_rows, raw_datatype, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            }
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-
         times.mpi_time[benchmark_timer::start] = MPI_Wtime();
         for(auto iter = 0; iter < iterations; iter++) {
             if(rank == 0) {
