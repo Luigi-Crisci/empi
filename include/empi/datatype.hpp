@@ -19,7 +19,7 @@ static constexpr bool no_status = false;
 
 template<typename T>
 struct mpi_type_impl {
-    static MPI_Datatype get_type() noexcept { return nullptr; }
+    static MPI_Datatype get_type() noexcept { return MPI_DATATYPE_NULL; }
 };
 
 #define MAKE_TYPE_CONVERSION(T, base_type)                                                                             \
