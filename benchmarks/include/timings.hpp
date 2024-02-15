@@ -34,12 +34,12 @@ static auto time_scale_to_string(time_scale scale) {
 
 struct benchmark_timer {
     constexpr benchmark_timer()
-        : mpi_time{0, std::numeric_limits<double>::min()}, compact_time{0, std::numeric_limits<double>::min()},
-          view_time{0, std::numeric_limits<double>::min()} {}
+        : mpi_time{0, 0}, compact_time{0, 0},
+        unpack_time{0, 0}, view_time{0, 0} {}
 
     auto get_timings() const {
         return std::make_tuple(
-            mpi_time[1] - mpi_time[0], compact_time[1] - compact_time[0], view_time[1] - view_time[0]);
+            mpi_time[1] - mpi_time[0], compact_time[1] - compact_time[0], unpack_time[1] - unpack_time[0], view_time[1] - view_time[0]);
     }
 
     auto operator()() const { return get_timings(); }
@@ -49,6 +49,7 @@ struct benchmark_timer {
 
     double mpi_time[2];
     double compact_time[2];
+    double unpack_time[2];
     double view_time[2];
 };
 
@@ -96,22 +97,25 @@ struct time_consumer {
         std::vector<double> mpi_times;
         std::vector<double> compact_times;
         std::vector<double> communication_times;
+        std::vector<double> unpack_times;
         std::vector<double> view_times;
 
         // Todo this should be generalized
         std::for_each(m_times.cbegin(), m_times.cend(), [&](const benchmark_timer &t) {
-            auto [mpi_time, compact_time, view_time] = t.get_timings();
+            auto [mpi_time, compact_time, unpack_time, view_time]= t.get_timings();
             mpi_times.push_back(mpi_time);
             compact_times.push_back(compact_time);
             view_times.push_back(view_time);
-            communication_times.push_back(mpi_time - compact_time);
+            unpack_times.push_back(unpack_time);
+            communication_times.push_back(mpi_time - compact_time - unpack_time);
         });
 
 
         std::cout << std::fixed << std::setprecision(8);
-        emit_results(mpi_times, "MPI time (communication + datatype build)");
+        emit_results(mpi_times, "MPI overall time (communication + datatype build + datatype compact + datatype unpack  (if applicable)");
         emit_results(communication_times, "MPI communication time");
         emit_results(compact_times, "Datatype compact time");
+        emit_results(unpack_times, "Datatype unpack time");
         emit_results(view_times, "Datatype build time");
         if(is_master()) { std::cout << "---------------------------" << std::endl; }
     }

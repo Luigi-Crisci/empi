@@ -7,10 +7,18 @@ FetchContent_Declare(argparse
 FetchContent_MakeAvailable(argparse)
 
 macro(create_example TARGET_NAME SRC_FILE)
-  set(EMPI_BENCHMARK_NAME ${TARGET_NAME})
   add_executable(${TARGET_NAME} ${SRC_FILE})
-
-  target_compile_definitions(${TARGET_NAME} PRIVATE EMPI_BENCHMARK_NAME="${TARGET_NAME}")
+  set(EMPI_BENCHMARK_NAME ${TARGET_NAME})
+  # Check if target name contains pack substring
+  string(FIND ${TARGET_NAME} "pack" PACK_FOUND)
+  if(PACK_FOUND GREATER -1)
+    set(PACK_FOUND TRUE)
+  else()
+    set(PACK_FOUND FALSE)
+  endif()
+  target_compile_definitions(${TARGET_NAME} PRIVATE $<$<BOOL:${PACK_FOUND}>:EMPI_INCLUDE_UNPACK_TIME>)
+  target_compile_definitions(${TARGET_NAME}
+                             PRIVATE EMPI_BENCHMARK_NAME="${TARGET_NAME}")
   target_link_libraries(${TARGET_NAME} empi argparse)
 endmacro()
 

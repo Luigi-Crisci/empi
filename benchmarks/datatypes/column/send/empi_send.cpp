@@ -6,11 +6,11 @@
 #include <mpi.h>
 #include <unistd.h>
 
-#include "../../../include/benchmark.hpp"
 #include "../../../include/bench_templates.hpp"
+#include "../../../include/benchmark.hpp"
 
 template<typename T>
-struct empi_send : public empi_benchmark<T>{
+struct empi_send : public empi_benchmark<T> {
     using base = empi_benchmark<T>;
     using base::base;
     using base::m_ctx;
@@ -47,6 +47,10 @@ struct empi_send : public empi_benchmark<T>{
             times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
             auto &&ptr = empi::layouts::compact(view); // basic compact function
             times.compact_time[benchmark_timer::end] = empi::wtime();
+            if(rank != 0) {
+                times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end]
+                    = 0; // skip compact time for non root
+            }
 
             for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
