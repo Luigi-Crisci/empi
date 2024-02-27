@@ -27,10 +27,20 @@ struct empi_ping_pong : public empi_benchmark<T>{
         MPI_Status status;
         size_t A = args.parser.get<size_t>("A");
         size_t B = args.parser.get<size_t>("B");
+        assert(size % B == 0 && "Size must be divisible by B");
         auto tiled_size = size / B * A;
 
         std::vector<T> data(size);
-        std::iota(data.begin(), data.end(), 0);
+        // a a a a a
+        // b b b b b ...
+        if(m_message_group->rank() == 0) {
+           for(size_t i = 0; i < size; i++) {
+               if (i % B < A){
+                data[i] = 'a';
+               }
+           }
+        }
+
         std::vector<T> res(tiled_size);
         res.reserve(tiled_size);
 
@@ -44,7 +54,7 @@ struct empi_ping_pong : public empi_benchmark<T>{
             mgh.barrier();
 
             times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
-            auto ptr = empi::layouts::block_layout::compact(view); 
+            auto&& ptr = empi::layouts::block_layout::compact(view); 
             times.compact_time[benchmark_timer::end] = empi::wtime();
 
             for(auto iter = 0; iter < iterations; iter++) {
@@ -56,8 +66,16 @@ struct empi_ping_pong : public empi_benchmark<T>{
                     mgh.send(res, 0, tiled_size);
                 }
             }
-            //TODO: Veryfy
-        });
+    
+            times.mpi_time[benchmark_timer::end] = empi::wtime();
+
+            for(auto i = 0; i < res.size(); i++) {
+                if(res[i] != 'a') {
+                    std::cerr << "Error: " << res[i] << " != " << 'a' << std::endl;
+                    std::abort();
+                }
+            }
+        }); 
     }
 };
 

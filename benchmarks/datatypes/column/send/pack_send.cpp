@@ -12,7 +12,7 @@
 using namespace std;
 
 template<typename T>
-struct mpi_send : public mpi_benchmark<T> {
+struct pack_send : public mpi_benchmark<T> {
     using base = mpi_benchmark<T>;
     using base::base;
 
@@ -83,7 +83,7 @@ struct mpi_send : public mpi_benchmark<T> {
 };
 
 int main(int argc, char **argv) {
-    benchmark_manager<mpi_send<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
+    benchmark_manager<pack_send<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
     auto &parser = bench_app.get_parser();
     parser.add_argument("--num-columns").help("Number of columns in the matrix").scan<'i', size_t>().default_value(5);
 

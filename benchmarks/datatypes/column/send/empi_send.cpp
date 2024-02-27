@@ -51,7 +51,7 @@ struct empi_send : public empi_benchmark<T> {
                 times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end]
                     = 0; // skip compact time for non root
             }
-
+ 
             for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
                     mgh.send(ptr.get(), 1, num_rows);

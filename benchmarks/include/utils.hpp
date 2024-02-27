@@ -42,6 +42,10 @@ struct basic_struct {
     }
 };
 
+
+// template metafunction to check if T has a nested type named value_type
+
+
 template<typename T>
 void print_safe_mpi(T *data, int n, int rank){
     int size;

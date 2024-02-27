@@ -1,106 +1,93 @@
-#include <algorithm>
-#include <chrono>
 #include <iostream>
 #include <malloc.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <time.h>
 #include <unistd.h>
 
+#include "../../../include/benchmark.hpp"
+#include "../../../include/bench_templates.hpp"
 #include "../../../include/utils.hpp"
+#include "empi/datatype.hpp"
 
 using namespace std;
 
+template<typename T>
+struct mpi_ping_pong : public mpi_benchmark<T>{
+    using base = mpi_benchmark<T>;
+    using base::base;
+
+    void run(benchmark_args &args) {
+        const size_t size = args.size;
+        const size_t iterations = args.iterations;
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        auto &times = args.times;
+        MPI_Status status;
+        size_t A = args.parser.get<size_t>("A");
+        size_t B = args.parser.get<size_t>("B");
+        assert(size % B == 0 && "Size must be divisible by B");
+        auto tiled_size = size / B * A;
+
+        std::vector<T> data(size);
+        // a a a a a
+        // b b b b b ...
+        if(rank == 0) {
+           for(size_t i = 0; i < size; i++) {
+               if (i % B < A){
+                data[i] = 'a';
+               }
+           }
+        }
+
+        //Need more space to allocate all the data
+        std::vector<T> res(size);
+        res.reserve(size);
+        
+        MPI_Datatype tiled_datatype;
+        times.view_time[benchmark_timer::start] = MPI_Wtime();
+        auto raw_datatype = empi::details::mpi_type<T>::get_type();
+        int flags;
+        bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
+        int tiled_datatype_size = get_communication_size(size, tiled_datatype, raw_datatype);
+        times.view_time[benchmark_timer::end] = MPI_Wtime();
+        
+        MPI_Barrier(MPI_COMM_WORLD);
+        times.mpi_time[benchmark_timer::start] = MPI_Wtime();
+        for(auto iter = 0; iter < iterations; iter++) {
+        if(rank == 0) {
+            MPI_Send(data.data(), tiled_datatype_size, tiled_datatype, 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(res.data(), tiled_datatype_size, tiled_datatype, 1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        } else { // Node rank 1
+            MPI_Recv(res.data(), tiled_datatype_size, tiled_datatype, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Send(res.data(), tiled_datatype_size, tiled_datatype, 0, 1, MPI_COMM_WORLD);
+        }
+    }
+        times.mpi_time[benchmark_timer::end] = MPI_Wtime();
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        if(rank == 1) {
+            // Verify
+            for(auto i = 0; i < res.size(); i++) {
+                if(i % B < A && res[i] != 'a') {
+                    std::cerr << "Error at index " << i << " value: " << res[i] << std::endl;
+                    std::abort();
+                }
+            }
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+
+    }
+
+};
 
 int main(int argc, char **argv) {
-    int myid, procs, n, err, max_iter, nBytes, sleep_time, iter = 0, range = 100, pow_2;
-    double t_start, t_end, t_datatype1, t_datatype2;
-    double mpi_time = 0.0;
-    constexpr int SCALE = 1000000;
-    constexpr int WARMUP = 100;
-    MPI_Status status;
+    benchmark_manager<mpi_ping_pong<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
+    auto &parser = bench_app.get_parser();
+    parser.add_argument("-A").help("Stride A").scan<'i', size_t>().required();
+    parser.add_argument("-B").help("Stride B (B > A)").scan<'i', size_t>().required();
 
-    err = MPI_Init(&argc, &argv);
-    if(err != MPI_SUCCESS) {
-        cout << "\nError initializing MPI.\n";
-        MPI_Abort(MPI_COMM_WORLD, err);
-    }
+    bench_app.run_benchmark();
 
-    MPI_Comm_size(MPI_COMM_WORLD, &procs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
-    // ------ PARAMETER SETUP -----------
-    n = atoi(argv[1]);
-    max_iter = atoi(argv[2]);
-
-    // Getting layout values
-    int A = std::stoi(argv[3]);
-    int B = std::stoi(argv[4]);
-    string datatype = argv[5];
-    MPI_Datatype tiled_datatype;
-    int flags;
-
-    void *myarr, *arr;
-    if(datatype == "basic") {
-        myarr = allocate<char>(n / sizeof(char));
-        arr = allocate<char>(n / sizeof(char));
-    } else {
-        myarr = allocate<basic_struct>(n / sizeof(basic_struct));
-        arr = allocate<basic_struct>(n / sizeof(basic_struct));
-    }
-
-    t_datatype1 = MPI_Wtime();
-    auto raw_datatype = get_datatype(datatype);
-    bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
-    t_datatype2 = MPI_Wtime();
-
-    int tiled_size = get_communication_size(n, tiled_datatype, raw_datatype);
-
-
-    // Warmup
-    MPI_Barrier(MPI_COMM_WORLD);
-    for(auto iter = 0; iter < WARMUP; iter++) {
-        if(myid == 0) {
-            MPI_Send(arr, tiled_size, tiled_datatype, 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(arr, tiled_size, tiled_datatype, 1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        } else { // Node rank 1
-            MPI_Recv(myarr, tiled_size, tiled_datatype, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            MPI_Send(myarr, tiled_size, tiled_datatype, 0, 1, MPI_COMM_WORLD);
-        }
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    t_start = MPI_Wtime();
-
-    for(auto iter = 0; iter < max_iter; iter++) {
-        if(myid == 0) {
-            MPI_Send(arr, tiled_size, tiled_datatype, 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(arr, tiled_size, tiled_datatype, 1, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        } else { // Node rank 1
-            MPI_Recv(myarr, tiled_size, tiled_datatype, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            MPI_Send(myarr, tiled_size, tiled_datatype, 0, 1, MPI_COMM_WORLD);
-        }
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    t_end = MPI_Wtime();
-    if(myid == 0) mpi_time = (t_end - t_start) * SCALE;
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    if(myid == 0) {
-        // cout << "\nData Size: " << nBytes << " bytes\n";
-        cout << ((t_datatype2 - t_datatype1) * SCALE) << "\n";
-        cout << mpi_time << "\n";
-        // cout << "Mean of communication times: " << Mean(mpi_time , num_restart)
-        //      << "\n";
-        // cout << "Median of communication times: " << Median(mpi_time ,
-        // num_restart )
-        //      << "\n";
-        // Print_times(mpi_time, num_restart);
-    }
-    free(arr);
-    free(myarr);
-    MPI_Finalize();
     return 0;
-} // end main
+}
+

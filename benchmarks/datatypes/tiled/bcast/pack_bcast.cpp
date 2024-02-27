@@ -4,15 +4,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "../../../include/benchmark.hpp"
 #include "../../../include/bench_templates.hpp"
+#include "../../../include/benchmark.hpp"
 #include "../../../include/utils.hpp"
+#include "../layout_utils.hpp"
 #include "empi/datatype.hpp"
 
 using namespace std;
 
 template<typename T>
-struct mpi_bcast : public mpi_benchmark<T>{
+struct pack_bcast : public mpi_benchmark<T> {
     using base = mpi_benchmark<T>;
     using base::base;
 
@@ -22,7 +23,6 @@ struct mpi_bcast : public mpi_benchmark<T>{
         int rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         auto &times = args.times;
-        MPI_Status status;
         size_t A = args.parser.get<size_t>("A");
         size_t B = args.parser.get<size_t>("B");
         assert(size % B == 0 && "Size must be divisible by B");
@@ -32,44 +32,38 @@ struct mpi_bcast : public mpi_benchmark<T>{
         // a a a a a
         // b b b b b ...
         if(rank == 0) {
-           for(size_t i = 0; i < size; i++) {
-               if (i % B < A){
-                data[i] = 'a';
-               }
-           }
+            for(size_t i = 0; i < size; i++) {
+                if(i % B < A) { data[i] = 'a'; }
+            }
         }
-        
-        MPI_Datatype tiled_datatype;
-        times.view_time[benchmark_timer::start] = MPI_Wtime();
-        auto raw_datatype = empi::details::mpi_type<T>::get_type();
-        int flags;
-        bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
-        int tiled_datatype_size = get_communication_size(size, tiled_datatype, raw_datatype);
-        times.view_time[benchmark_timer::end] = MPI_Wtime();
-        
+
+        std::vector<T> res(tiled_size);
+        res.reserve(tiled_size);
+
+        tiled::pack(data, res, size, A, B, tiled_size, rank, times);
+
         MPI_Barrier(MPI_COMM_WORLD);
         times.mpi_time[benchmark_timer::start] = MPI_Wtime();
         for(auto iter = 0; iter < iterations; iter++) {
-            MPI_Bcast(data.data(), tiled_datatype_size, tiled_datatype, 0, MPI_COMM_WORLD);
+            MPI_Bcast(res.data(), tiled_size, MPI_PACKED, 0, MPI_COMM_WORLD);
         }
-        times.mpi_time[benchmark_timer::end] = MPI_Wtime();
-        MPI_Barrier(MPI_COMM_WORLD);
 
-            // Verify
-            for(auto i = 0; i < data.size(); i++) {
-                if(i % B < A && data[i] != 'a') {
-                    std::cerr << "Error at index " << i << " value: " << data[i] << std::endl;
-                    std::abort();
-                }
+        tiled::unpack(data, res, size, A, B, tiled_size, rank, times);
+        
+        // Verify
+        if(rank == 0) { data = res; }
+        for(auto i = 0; i < tiled_size; i++) {
+            if(data[i] != 'a') {
+                std::cerr << "Error at index " << i << " value: " << data[i] << std::endl;
+                std::abort();
+            }
         }
         MPI_Barrier(MPI_COMM_WORLD);
-
     }
-
 };
 
 int main(int argc, char **argv) {
-    benchmark_manager<mpi_bcast<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
+    benchmark_manager<pack_bcast<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
     auto &parser = bench_app.get_parser();
     parser.add_argument("-A").help("Stride A").scan<'i', size_t>().required();
     parser.add_argument("-B").help("Stride B (B > A)").scan<'i', size_t>().required();
@@ -78,4 +72,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-
