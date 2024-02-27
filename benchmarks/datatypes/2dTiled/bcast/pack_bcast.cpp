@@ -16,7 +16,7 @@
 using namespace std;
 
 template<typename T>
-struct pack_ping_pong : public mpi_benchmark<T> {
+struct pack_bcast : public mpi_benchmark<T> {
     using base = mpi_benchmark<T>;
     using base::base;
 
@@ -43,12 +43,12 @@ struct pack_ping_pong : public mpi_benchmark<T> {
 
         std::vector<T> data(matrix_size);
         // Fill each tile with a different value
-        for(auto i = 0; i < matrix_size /  num_cols; i++) {
-            for(auto j = 0; j < num_cols; j++) {
-                data[i * num_cols + j] = 'a' + i;
+        if(rank == 0) {
+            for(auto i = 0; i < matrix_size / num_cols; i++) {
+                for(auto j = 0; j < num_cols; j++) { data[i * num_cols + j] = 'a' + i; }
             }
         }
-        
+
         std::vector<T> res(tile_size);
         std::vector<T> submatrix(tile_size);
         res.reserve(tile_size);
@@ -60,34 +60,33 @@ struct pack_ping_pong : public mpi_benchmark<T> {
         times.compact_time[benchmark_timer::end] = empi::wtime();
 
         for(auto iter = 0; iter < iterations; iter++) {
-            if(rank == 0) {
-                MPI_Send(submatrix.data(), tile_size, MPI_PACKED, 1, 0, MPI_COMM_WORLD);
-            } else {
-                MPI_Recv(res.data(), tile_size, MPI_PACKED, 0, 0, MPI_COMM_WORLD, &status);
-            }
+            MPI_Bcast(submatrix.data(), tile_size, MPI_PACKED, 0, MPI_COMM_WORLD);
         }
         times.mpi_time[benchmark_timer::end] = empi::wtime();
-        twoDtiled::unpack(res, submatrix, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
+        twoDtiled::unpack(submatrix, res, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
 
         if(rank == 1) {
-            auto matrix = Kokkos::mdspan(submatrix.data(), Kokkos::dextents<std::size_t, 2>(tile_row_size, tile_col_size));
+            auto matrix = Kokkos::mdspan(res.data(), Kokkos::dextents<std::size_t, 2>(tile_row_size, tile_col_size));
             // check matrix
-           for(auto i = 0; i < tile_row_size; i++) {
-                    for(auto j = 0; j < tile_col_size; j++) {
-                        if(matrix(i, j) != static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size)) {
-                            std::cerr << "Error: " << matrix(i, j) << " != " << static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size) << std::endl;
-                            std::abort();
-                        }
+            for(auto i = 0; i < tile_row_size; i++) {
+                for(auto j = 0; j < tile_col_size; j++) {
+                    if(matrix(i, j)
+                        != static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size)) {
+                        std::cerr << "Error: " << matrix(i, j) << " != "
+                                  << static_cast<char>(
+                                         'a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size)
+                                  << std::endl;
+                        std::abort();
                     }
                 }
+            }
         }
-}
-}
-;
+    }
+};
 
 
 int main(int argc, char **argv) {
-    benchmark_manager<pack_ping_pong<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
+    benchmark_manager<pack_bcast<char>> bench_app{argc, argv, EMPI_BENCHMARK_NAME};
     auto &parser = bench_app.get_parser();
     parser.add_argument("-c", "--num-cols").help("Number of columns [size x c]").scan<'i', size_t>().required();
     parser.add_argument("--sub-n").help("Number of submatrix rows").scan<'i', size_t>().required();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "mpi.h"
+#include <mpi/mpi.h>
 #include "timings.hpp"
 #include "utils.hpp"
 #include <argparse/argparse.hpp>

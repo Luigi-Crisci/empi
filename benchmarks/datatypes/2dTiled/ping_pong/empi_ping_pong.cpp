@@ -9,6 +9,7 @@
 
 #include "../../../include/bench_templates.hpp"
 #include "../../../include/benchmark.hpp"
+#include "../layout_utils.hpp"
 
 using namespace std;
 
@@ -42,27 +43,19 @@ struct empi_ping_pong : public empi_benchmark<T> {
 
         std::vector<T> data(matrix_size);
         // Fill each tile with a different value
-        for(auto i = 0; i < num_tiles; i++) {
-            for(auto j = 0; j < tile_size; j++) {
-                data[i * tile_size + j] = 'a' + i;
+        for(auto i = 0; i < matrix_size /  num_cols; i++) {
+            for(auto j = 0; j < num_cols; j++) {
+                data[i * num_cols + j] = 'a' + i;
             }
         }
 
         std::vector<T> res(tile_size);
         res.reserve(tile_size);
 
-        times.view_time[benchmark_timer::start] = empi::wtime();
-        auto matrix = Kokkos::mdspan(data.data(), Kokkos::dextents<std::size_t, 2>(size, num_cols));
-        auto submatrix = empi::layouts::submatrix_layout::build(matrix, tile_row_size, tile_col_size, tile_to_send);        
-        times.view_time[benchmark_timer::end] = empi::wtime();
-
+        auto submatrix = twoDtiled::build_mdspan(data, size, num_cols, tile_row_size, tile_col_size, tile_to_send, times);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            mgh.barrier();
-
-            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
-            auto&& ptr = empi::layouts::submatrix_layout::compact(submatrix);
-            times.compact_time[benchmark_timer::end] = empi::wtime();
+            auto&& ptr = twoDtiled::compact_view(data, submatrix, times, m_message_group);
 
             for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
@@ -78,8 +71,8 @@ struct empi_ping_pong : public empi_benchmark<T> {
                 // check matrix
                 for(auto i = 0; i < tile_row_size; i++) {
                     for(auto j = 0; j < tile_col_size; j++) {
-                        if(matrix(i, j) != static_cast<char>('a' + i)) {
-                            std::cerr << "Error: " << matrix(i, j) << " != " << static_cast<char>('a' + i) << std::endl;
+                        if(matrix(i, j) != static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size)) {
+                            std::cerr << "Error: " << matrix(i, j) << " != " << static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size) << std::endl;
                             std::abort();
                         }
                     }
