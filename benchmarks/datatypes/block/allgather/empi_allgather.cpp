@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
             mgh.barrier();
 
             t_start = MPI_Wtime();
-            auto ptr = empi::layouts::block_layout::compact(view);
+            auto&& ptr = empi::layouts::block_layout::compact(view);
             t_compact2 = MPI_Wtime();
 
             for(auto iter = 0; iter < max_iter; iter++) { mgh.Allgather(ptr.get(), tiled_size, recv, tiled_size); }

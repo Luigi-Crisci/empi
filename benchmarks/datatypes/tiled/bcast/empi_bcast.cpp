@@ -48,7 +48,7 @@ struct empi_bcast : public empi_benchmark<T>{
         auto view = tiled::build_mdspan(data, A, B, tiled_size, times);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            auto ptr = tiled::compact_view(data, view, times, m_message_group);
+            auto&& ptr = tiled::compact_view(data, view, times, m_message_group);
 
             for(auto iter = 0; iter < iterations; iter++) {
                 mgh.Bcast(ptr.get(), 0, tiled_size);
