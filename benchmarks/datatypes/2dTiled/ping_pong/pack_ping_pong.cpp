@@ -11,7 +11,6 @@
 #include "../../../include/benchmark.hpp"
 #include "../layout_utils.hpp"
 
-#include "mpi/mpi.h"
 
 using namespace std;
 
