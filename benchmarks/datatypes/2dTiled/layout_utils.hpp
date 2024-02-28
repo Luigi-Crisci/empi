@@ -63,7 +63,7 @@ static auto compact_view(T& data, auto view, benchmark_timer &times, std::unique
     if (mg->rank() != 0) {
             times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end] = 0;
     }
-    return ptr;
+    return std::move(ptr);
 
 
     

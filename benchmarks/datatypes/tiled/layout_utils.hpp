@@ -36,7 +36,7 @@ static void unpack(
 
 template<typename T>
     requires empi::details::has_data<T>
-static auto build_mdspan(T& data, size_t A, size_t B, size_t tiled_size, benchmark_timer &times){
+static auto build_mdspan(T &data, size_t A, size_t B, size_t tiled_size, benchmark_timer &times) {
     times.view_time[benchmark_timer::start] = empi::wtime();
     Kokkos::dextents<size_t, 1> ext(tiled_size);
     auto view = empi::layouts::block_layout::build(data, ext, A, B);
@@ -46,15 +46,13 @@ static auto build_mdspan(T& data, size_t A, size_t B, size_t tiled_size, benchma
 
 template<typename T>
     requires empi::details::has_data<T>
-static auto compact_view(T& data, auto view, benchmark_timer &times, std::unique_ptr<empi::MessageGroup>& mg){
+static auto compact_view(T &data, auto view, benchmark_timer &times, std::unique_ptr<empi::MessageGroup> &mg) {
     mg->barrier();
     times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
-            auto&& ptr = empi::layouts::block_layout::compact(view); 
-            times.compact_time[benchmark_timer::end] = empi::wtime();
-            if (mg->rank() != 0) {
-                 times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end] = 0;
-            }
-            return ptr;
+    auto &&ptr = empi::layouts::block_layout::compact(view);
+    times.compact_time[benchmark_timer::end] = empi::wtime();
+    if(mg->rank() != 0) { times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end] = 0; }
+    return std::move(ptr);
 }
 
 } // namespace tiled
