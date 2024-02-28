@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mpi/mpi.h>
+#include "mpi.h"
 #include "timings.hpp"
 #include "utils.hpp"
 #include <argparse/argparse.hpp>
@@ -8,7 +8,7 @@
 struct benchmark_args {
     benchmark_args(size_t size, size_t iterations, argparse::ArgumentParser &parser, int argc, char **argv)
         : size(size), iterations(iterations), parser(parser) {}
-
+    
     benchmark_args(const benchmark_args &args) = delete;
 
     size_t size;
