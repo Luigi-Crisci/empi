@@ -118,8 +118,8 @@ struct submatrix_layout {
         const size_t row_tile_pos = (tile_num / (num_cols / col_size)) * row_size;
         const size_t col_tile_pos = (tile_num % (num_cols / col_size)) * col_size;
 
-        return Kokkos::submdspan(view, Kokkos::strided_slice{row_tile_pos, row_size, stride},
-            Kokkos::strided_slice{col_tile_pos, col_size, stride});
+        return Kokkos::submdspan(view, Kokkos::strided_slice<size_t, size_t, size_t>{row_tile_pos, row_size, stride},
+            Kokkos::strided_slice<size_t, size_t, size_t>{col_tile_pos, col_size, stride});
     }
 
      // One-dimensional compact
