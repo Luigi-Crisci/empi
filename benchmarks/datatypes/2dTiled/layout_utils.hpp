@@ -22,7 +22,7 @@ static void pack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_row_
         const auto tiles_per_row = (col_num / tile_col_size);
         const auto tile_row_pos = (tile_to_send / tiles_per_row) * tile_row_size;
         for(auto i = 0; i < tile_row_size; i++) {
-            MPI_Pack(&data[tile_row_pos * col_num + (tile_to_send % tiles_per_row) * tile_col_size + i * col_num], tile_col_size, base_datatype, out.data(), tile_col_size * tile_row_size, &position, MPI_COMM_WORLD);
+            MPI_Pack(&data[tile_row_pos * col_num + (tile_to_send % tiles_per_row) * tile_col_size + i * col_num], tile_col_size, base_datatype, out.data(), tile_col_size * tile_row_size * sizeof(T), &position, MPI_COMM_WORLD);
         }
         assert(position == tile_col_size * tile_row_size && "Position must be equal to the size of the packed data");
         times.compact_time[benchmark_timer::end] = MPI_Wtime();
@@ -37,7 +37,7 @@ static void unpack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_ro
     // Unpack the data
     auto base_datatype = empi::details::mpi_type<T>::get_type();
     int position = 0;
-    MPI_Unpack(in.data(), tile_col_size * tile_row_size, &position, out.data(), tile_col_size * tile_row_size, base_datatype, MPI_COMM_WORLD);
+    MPI_Unpack(in.data(), tile_col_size * tile_row_size * sizeof(T), &position, out.data(), tile_col_size * tile_row_size, base_datatype, MPI_COMM_WORLD);
     assert(position == tile_col_size * tile_row_size && "Position must be equal to the size of the packed data");
     times.mpi_time[benchmark_timer::end] = times.unpack_time[benchmark_timer::end] = MPI_Wtime();
 }
