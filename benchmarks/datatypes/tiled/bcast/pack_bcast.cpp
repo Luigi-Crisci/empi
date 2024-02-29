@@ -43,7 +43,7 @@ struct pack_bcast : public mpi_benchmark<T> {
         tiled::pack(data, res, size, A, B, tiled_size, rank, times);
 
         MPI_Barrier(MPI_COMM_WORLD);
-        times.mpi_time[benchmark_timer::start] = MPI_Wtime();
+        times.start(timings::mpi);
         for(auto iter = 0; iter < iterations; iter++) {
             MPI_Bcast(res.data(), tiled_size, MPI_PACKED, 0, MPI_COMM_WORLD);
         }

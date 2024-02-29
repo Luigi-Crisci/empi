@@ -37,14 +37,14 @@ struct mpi_send : public mpi_benchmark<T>{
                 for(int j = 0; j < num_columns; j++) { data[j + i * num_columns] = i % 10; }
             }
         }
-        times.view_time[benchmark_timer::start] = MPI_Wtime();
+        times.start(timings::view);
         auto raw_datatype = empi::details::mpi_type<T>::get_type();
         bl_column(&column_datatype, num_rows, num_columns, raw_datatype);
         constexpr int column_size = 1;
-        times.view_time[benchmark_timer::end] = MPI_Wtime();
+        times.stop(timings::view);
 
         MPI_Barrier(MPI_COMM_WORLD);
-        times.mpi_time[benchmark_timer::start] = MPI_Wtime();
+        times.start(timings::mpi);
         for(auto iter = 0; iter < iterations; iter++) {
             if(rank == 0) {
                 MPI_Send(data.data() + col_to_send, column_size, column_datatype, 1, 0, MPI_COMM_WORLD);
@@ -53,7 +53,7 @@ struct mpi_send : public mpi_benchmark<T>{
             }
         }
 
-        times.mpi_time[benchmark_timer::end] = MPI_Wtime();
+        times.stop(timings::mpi);
         MPI_Barrier(MPI_COMM_WORLD);
 
         if(rank == 1) {

@@ -21,7 +21,6 @@ struct empi_ping_pong : public empi_benchmark<T> {
     using base::m_message_group;
 
     void run(benchmark_args &args) {
-
         // Layout default parameters
         const auto rank = m_message_group->rank();
         const size_t size = args.size;
@@ -43,19 +42,54 @@ struct empi_ping_pong : public empi_benchmark<T> {
 
         std::vector<T> data(matrix_size);
         // Fill each tile with a different value
-        for(auto i = 0; i < matrix_size /  num_cols; i++) {
-            for(auto j = 0; j < num_cols; j++) {
-                data[i * num_cols + j] = 'a' + i;
-            }
+        for(auto i = 0; i < matrix_size / num_cols; i++) {
+            for(auto j = 0; j < num_cols; j++) { data[i * num_cols + j] = 'a' + i; }
         }
 
         std::vector<T> res(tile_size);
         res.reserve(tile_size);
 
-        auto submatrix = twoDtiled::build_mdspan(data, size, num_cols, tile_row_size, tile_col_size, tile_to_send, times);
+        // static constexpr int X = -1;
+        // // Clang-Format off
+        // int data_tiled[] = {
+        //     /* tile 0, 0 */ 1,
+        //     2,
+        //     3,
+        //     6,
+        //     7,
+        //     8,
+        //     X,
+        //     X,
+        //     X,
+        //     /* tile 0, 1 */ 4,
+        //     5,
+        //     X,
+        //     9,
+        //     10,
+        //     X,
+        //     X,
+        //     X,
+        //     X,
+        // };
+        // // Clang-Format on
+
+        auto submatrix = twoDtiled::build_mdspan(data, size, num_cols, tile_row_size, tile_col_size, tile_to_send,
+        times);
+        // Kokkos::mdspan<int, Kokkos::dextents<std::size_t, 2>, empi::layouts::tiled_layout::tiled_layout_impl> matrix{
+        //     data_tiled,
+        //     typename empi::layouts::tiled_layout::tiled_layout_impl::template mapping<Kokkos::dextents<std::size_t, 2>>(
+        //         Kokkos::dextents<std::size_t, 2>{2, 5}, 3, 3)};
+        // // print matrix
+        // for(auto i = 0; i < matrix.extent(0); i++) {
+        //     for(auto j = 0; j < matrix.extent(1); j++) { std::cout << matrix(i, j) << " "; }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << std::endl;
+
+        // auto submatrix = empi::layouts::submatrix_layout::build(matrix, tile_row_size, tile_col_size, tile_to_send);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            auto&& ptr = twoDtiled::compact_view(data, submatrix, times, m_message_group);
+            auto&& ptr = twoDtiled::compact_view(submatrix, times, m_message_group);
 
             for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
@@ -64,16 +98,18 @@ struct empi_ping_pong : public empi_benchmark<T> {
                     mgh.recv(res.data(), 0, tile_size, status);
                 }
             }
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             if (rank == 1){
-                auto matrix = Kokkos::mdspan(res.data(), Kokkos::dextents<std::size_t, 2>(tile_row_size, tile_col_size));
+                auto matrix = Kokkos::mdspan(res.data(), Kokkos::dextents<std::size_t, 2>(tile_row_size,
+                tile_col_size));
                 // check matrix
                 for(auto i = 0; i < tile_row_size; i++) {
                     for(auto j = 0; j < tile_col_size; j++) {
-                        if(matrix(i, j) != static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size)) {
-                            std::cerr << "Error: " << matrix(i, j) << " != " << static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) * tile_row_size) << std::endl;
-                            std::abort();
+                        if(matrix(i, j) != static_cast<char>('a' + i + (tile_to_send / (num_cols / tile_col_size)) *
+                        tile_row_size)) {
+                            std::cerr << "Error: " << matrix(i, j) << " != " << static_cast<char>('a' + i +
+                            (tile_to_send / (num_cols / tile_col_size)) * tile_row_size) << std::endl; std::abort();
                         }
                     }
                 }

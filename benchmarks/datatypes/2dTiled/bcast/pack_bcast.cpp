@@ -53,14 +53,12 @@ struct pack_bcast : public mpi_benchmark<T> {
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
         twoDtiled::pack(data, submatrix, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
-        times.compact_time[benchmark_timer::end] = empi::wtime();
 
         for(auto iter = 0; iter < iterations; iter++) {
             MPI_Bcast(submatrix.data(), tile_size, MPI_PACKED, 0, MPI_COMM_WORLD);
         }
-        times.mpi_time[benchmark_timer::end] = empi::wtime();
+        
         twoDtiled::unpack(submatrix, res, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
 
         if(rank == 1) {

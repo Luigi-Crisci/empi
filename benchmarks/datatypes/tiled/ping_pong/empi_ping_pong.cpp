@@ -44,18 +44,18 @@ struct empi_ping_pong : public empi_benchmark<T>{
         std::vector<T> res(tiled_size);
         res.reserve(tiled_size);
 
-        times.view_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::view);
         Kokkos::dextents<size_t, 1> ext(tiled_size);
         auto view = empi::layouts::block_layout::build(data, ext, A, B);
-        times.view_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::view);
 
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
             mgh.barrier();
 
-            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+            times.start(timings::mpi); times.start(timings::compact); 
             auto&& ptr = empi::layouts::block_layout::compact(view); 
-            times.compact_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::compact);
 
             for(auto iter = 0; iter < iterations; iter++) {
                 if(rank == 0) {
@@ -67,7 +67,7 @@ struct empi_ping_pong : public empi_benchmark<T>{
                 }
             }
     
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             for(auto i = 0; i < res.size(); i++) {
                 if(res[i] != 'a') {

@@ -11,9 +11,11 @@ namespace twoDtiled {
 template<typename T>
     requires empi::details::has_data<T>
 static void pack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_row_size, size_t tile_col_size, size_t tile_to_send, int rank, benchmark_timer &times) {
+    times.start(timings::mpi);
+
     auto base_datatype = empi::details::mpi_type<T>::get_type();
     if(rank == 0) {
-        times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::compact);
         int position = 0;
         // const size_t row_tile_pos = (tile_to_send / (col_num / tile_col_size)) * tile_row_size;
         const size_t col_tile_pos = (tile_to_send % (col_num / tile_col_size)) * tile_col_size;
@@ -25,43 +27,51 @@ static void pack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_row_
             MPI_Pack(&data[tile_row_pos * col_num + (tile_to_send % tiles_per_row) * tile_col_size + i * col_num], tile_col_size, base_datatype, out.data(), tile_col_size * tile_row_size * sizeof(T), &position, MPI_COMM_WORLD);
         }
         assert(position == tile_col_size * tile_row_size && "Position must be equal to the size of the packed data");
-        times.compact_time[benchmark_timer::end] = MPI_Wtime();
     }
+
+    times.stop(timings::compact);
 }
 
 template<typename T>
     requires empi::details::has_data<T>
 static void unpack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_row_size, size_t tile_col_size, size_t tile_to_send, int rank, benchmark_timer &times) {
-    times.mpi_time[benchmark_timer::end] = MPI_Wtime();
-    times.unpack_time[benchmark_timer::start] = MPI_Wtime();
+    times.start(timings::unpack);
+    
     // Unpack the data
     auto base_datatype = empi::details::mpi_type<T>::get_type();
     int position = 0;
     MPI_Unpack(in.data(), tile_col_size * tile_row_size * sizeof(T), &position, out.data(), tile_col_size * tile_row_size, base_datatype, MPI_COMM_WORLD);
     assert(position == tile_col_size * tile_row_size && "Position must be equal to the size of the packed data");
-    times.mpi_time[benchmark_timer::end] = times.unpack_time[benchmark_timer::end] = MPI_Wtime();
+    
+    times.stop(timings::unpack);
+    times.stop(timings::mpi);
 }
 
 
 template<typename T>
     requires empi::details::has_data<T>
 static auto build_mdspan(T& data, size_t size, size_t num_cols, size_t tile_row_size, size_t tile_col_size, size_t tile_to_send, benchmark_timer &times){
-    times.view_time[benchmark_timer::start] = empi::wtime();
+    times.start(timings::view);
+    
     auto matrix = Kokkos::mdspan(data.data(), Kokkos::dextents<std::size_t, 2>(size, num_cols));
     auto submatrix = empi::layouts::submatrix_layout::build(matrix, tile_row_size, tile_col_size, tile_to_send);      
-    times.view_time[benchmark_timer::end] = empi::wtime();
+    
+    times.stop(timings::view);
+    
     return submatrix;
 }
 
-template<typename T>
-    requires empi::details::has_data<T>
-static auto compact_view(T& data, auto view, benchmark_timer &times, std::unique_ptr<empi::MessageGroup>& mg){
+template<typename View, typename T = typename View::value_type>
+static auto compact_view(View view, benchmark_timer &times, std::unique_ptr<empi::MessageGroup>& mg){
     mg->barrier();
-    times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+
+    times.start(timings::mpi);
+    times.start(timings::compact);
+    
     auto&& ptr = empi::layouts::submatrix_layout::compact(view); 
-    times.compact_time[benchmark_timer::end] = empi::wtime();
+    times.stop(timings::compact);
     if (mg->rank() != 0) {
-            times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end] = 0;
+            times.reset(timings::compact);
     }
     return std::move(ptr);
 

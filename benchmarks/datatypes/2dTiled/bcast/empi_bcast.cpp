@@ -53,11 +53,12 @@ struct empi_bcast : public empi_benchmark<T> {
             = twoDtiled::build_mdspan(data, size, num_cols, tile_row_size, tile_col_size, tile_to_send, times);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            auto &&ptr = twoDtiled::compact_view(data, submatrix, times, m_message_group);
+            auto &&ptr = twoDtiled::compact_view(submatrix, times, m_message_group);
+            assert(submatrix.size() == tile_size && "Submatrix size must be equal to tile size");
 
             for(auto iter = 0; iter < iterations; iter++) { mgh.Bcast(ptr.get(), 0, tile_size); }
 
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             if(rank != 0) {
                 auto matrix

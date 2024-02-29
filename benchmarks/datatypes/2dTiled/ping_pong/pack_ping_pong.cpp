@@ -54,9 +54,7 @@ struct pack_ping_pong : public mpi_benchmark<T> {
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
         twoDtiled::pack(data, submatrix, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
-        times.compact_time[benchmark_timer::end] = empi::wtime();
 
         for(auto iter = 0; iter < iterations; iter++) {
             if(rank == 0) {
@@ -65,7 +63,6 @@ struct pack_ping_pong : public mpi_benchmark<T> {
                 MPI_Recv(res.data(), tile_size, MPI_PACKED, 0, 0, MPI_COMM_WORLD, &status);
             }
         }
-        times.mpi_time[benchmark_timer::end] = empi::wtime();
         twoDtiled::unpack(res, submatrix, size, num_cols, tile_row_size, tile_col_size, tile_to_send, rank, times);
 
         if(rank == 1) {

@@ -42,12 +42,12 @@ struct pack_send : public mpi_benchmark<T> {
         // Pack
         std::vector<T> send_col(num_rows);
         if(rank == 0) {
-            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+            times.start(timings::mpi); times.start(timings::compact); 
             for(int i = 0, position = 0; i < num_rows; i++) {
                 MPI_Pack(&data[col_to_send + i * num_columns], 1, empi::details::mpi_type<T>::get_type(),
                     send_col.data(), num_rows * sizeof(T), &position, MPI_COMM_WORLD);
             }
-            times.compact_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::compact);
         }
 
         for(auto iter = 0; iter < iterations; iter++) {
@@ -60,13 +60,14 @@ struct pack_send : public mpi_benchmark<T> {
 
         // Unpack
         if(rank == 1) {
-            times.unpack_time[benchmark_timer::start] = empi::wtime();
+            times.start(timings::unpack);
             for(int i = 0, position = 0; i < num_rows; i++) {
                 MPI_Unpack(rec_column.data(), num_rows * sizeof(T), &position, &rec_column[i], 1, empi::details::mpi_type<T>::get_type(),
                     MPI_COMM_WORLD);
             }
-            times.mpi_time[benchmark_timer::end] = times.unpack_time[benchmark_timer::end] = MPI_Wtime();
+            times.stop(timings::unpack);
         }
+        times.stop(timings::mpi);
         MPI_Barrier(MPI_COMM_WORLD);
 
         if(rank == 1) {

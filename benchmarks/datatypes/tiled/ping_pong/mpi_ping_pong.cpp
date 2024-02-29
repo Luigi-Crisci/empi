@@ -44,15 +44,15 @@ struct mpi_ping_pong : public mpi_benchmark<T>{
         res.reserve(size);
         
         MPI_Datatype tiled_datatype;
-        times.view_time[benchmark_timer::start] = MPI_Wtime();
+        times.start(timings::view);
         auto raw_datatype = empi::details::mpi_type<T>::get_type();
         int flags;
         bl_tiled(&tiled_datatype, &flags, A, B, raw_datatype);
         int tiled_datatype_size = get_communication_size(size, tiled_datatype, raw_datatype);
-        times.view_time[benchmark_timer::end] = MPI_Wtime();
+        times.stop(timings::view);
         
         MPI_Barrier(MPI_COMM_WORLD);
-        times.mpi_time[benchmark_timer::start] = MPI_Wtime();
+        times.start(timings::mpi);
         for(auto iter = 0; iter < iterations; iter++) {
         if(rank == 0) {
             MPI_Send(data.data(), tiled_datatype_size, tiled_datatype, 1, 0, MPI_COMM_WORLD);
@@ -62,7 +62,7 @@ struct mpi_ping_pong : public mpi_benchmark<T>{
             MPI_Send(res.data(), tiled_datatype_size, tiled_datatype, 0, 1, MPI_COMM_WORLD);
         }
     }
-        times.mpi_time[benchmark_timer::end] = MPI_Wtime();
+        times.stop(timings::mpi);
         MPI_Barrier(MPI_COMM_WORLD);
 
         if(rank == 1) {

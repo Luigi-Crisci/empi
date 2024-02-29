@@ -7,6 +7,7 @@
 #include <mpi.h> // Include MPI Reduce
 #include <numeric>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 enum time_scale { seconds = 1, milliseconds = 1000, microseconds = 1000000, nanoseconds = 1000000000 };
@@ -30,26 +31,67 @@ static auto time_scale_to_string(time_scale scale) {
     throw std::runtime_error("Invalid time scale");
 }
 
+struct timer {
+    timer() : m_start_time{0}, m_end_time{0} {}
+
+    void start() {
+        if(m_start_time != 0) { throw std::runtime_error("Timer already started"); }
+        m_start_time = MPI_Wtime();
+    }
+    void stop() {
+        if(m_end_time != 0) { throw std::runtime_error("Timer already stopped"); }
+        m_end_time = MPI_Wtime();
+    }
+
+    void set(double start, double end) {
+        m_start_time = start;
+        m_end_time = end;
+    }
+    void set(const timer &t) {
+        m_start_time = t.m_start_time;
+        m_end_time = t.m_end_time;
+    }
+    void reset() {
+        if(m_start_time == 0 && m_end_time == 0) { std::cout << "Warning: Timer already reset\n"; }
+        m_start_time = m_end_time = 0;
+    }
+
+    auto get_time() const { 
+        if ((m_end_time == 0 && m_start_time != 0) || (m_end_time != 0 && m_start_time == 0)) {
+            throw std::runtime_error("Timer not stopped or started correctly.");
+        }
+        return m_end_time - m_start_time; 
+    }
+
+  private:
+    double m_start_time;
+    double m_end_time;
+};
+
+enum timings { mpi, compact, unpack, view };
 
 struct benchmark_timer {
-    constexpr benchmark_timer()
-        : mpi_time{0, 0}, compact_time{0, 0},
-        unpack_time{0, 0}, view_time{0, 0} {}
+    benchmark_timer() {
+        m_timings.insert({timings::mpi, timer()});
+        m_timings.insert({timings::compact, timer()});
+        m_timings.insert({timings::unpack, timer()});
+        m_timings.insert({timings::view, timer()});
+    }
 
     auto get_timings() const {
-        return std::make_tuple(
-            mpi_time[1] - mpi_time[0], compact_time[1] - compact_time[0], unpack_time[1] - unpack_time[0], view_time[1] - view_time[0]);
+        return std::make_tuple(m_timings.at(timings::mpi).get_time(), m_timings.at(timings::compact).get_time(),
+            m_timings.at(timings::unpack).get_time(), m_timings.at(timings::view).get_time());
     }
+
+    void start(timings type) { m_timings[type].start(); }
+    void stop(timings type) { m_timings[type].stop(); }
+    void reset(timings type) { m_timings[type].reset(); }
+
 
     auto operator()() const { return get_timings(); }
 
-    static constexpr short start = 0;
-    static constexpr short end = 1;
 
-    double mpi_time[2];
-    double compact_time[2];
-    double unpack_time[2];
-    double view_time[2];
+    std::unordered_map<timings, timer> m_timings;
 };
 
 struct time_consumer {
@@ -101,7 +143,7 @@ struct time_consumer {
 
         // Todo this should be generalized
         std::for_each(m_times.cbegin(), m_times.cend(), [&](const benchmark_timer &t) {
-            auto [mpi_time, compact_time, unpack_time, view_time]= t.get_timings();
+            auto [mpi_time, compact_time, unpack_time, view_time] = t.get_timings();
             mpi_times.push_back(mpi_time);
             compact_times.push_back(compact_time);
             view_times.push_back(view_time);
@@ -111,7 +153,8 @@ struct time_consumer {
 
 
         std::cout << std::fixed << std::setprecision(8);
-        emit_results(mpi_times, "MPI overall time (communication + datatype build + datatype compact + datatype unpack  (if applicable)");
+        emit_results(mpi_times,
+            "MPI overall time (communication + datatype build + datatype compact + datatype unpack  (if applicable)");
         emit_results(communication_times, "MPI communication time");
         emit_results(compact_times, "Datatype compact time");
         emit_results(unpack_times, "Datatype unpack time");

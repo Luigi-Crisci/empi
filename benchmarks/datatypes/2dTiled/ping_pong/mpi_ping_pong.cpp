@@ -53,13 +53,14 @@ struct mpi_ping_pong : public mpi_benchmark<T> {
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::view);
         // Create MPI datatype represemnting the submatrix 
         MPI_Datatype submatrix_type;
         MPI_Type_vector(tile_row_size, tile_col_size, num_cols, empi::details::mpi_type<T>::get_type(), &submatrix_type);
         MPI_Type_commit(&submatrix_type);
-        times.compact_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::view);
 
+        times.start(timings::mpi);
         const auto tiles_per_row = (num_cols / tile_col_size);
         const auto tile_row_pos = (tile_to_send / tiles_per_row) * tile_row_size;
 
@@ -70,7 +71,7 @@ struct mpi_ping_pong : public mpi_benchmark<T> {
                 MPI_Recv(res.data(), 1, submatrix_type, 0, 0, MPI_COMM_WORLD, &status);
             }
         }
-        times.mpi_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::mpi);
 
         if(rank == 1) {
             // // check matrix

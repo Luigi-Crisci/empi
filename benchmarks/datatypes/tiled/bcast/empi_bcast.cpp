@@ -54,7 +54,7 @@ struct empi_bcast : public empi_benchmark<T>{
                 mgh.Bcast(ptr.get(), 0, tiled_size);
             }
     
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             for(auto i = 0; i < res.size(); i++) {
                 if(ptr.get()[i] != 'a') {

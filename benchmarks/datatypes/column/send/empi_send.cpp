@@ -37,19 +37,22 @@ struct empi_send : public empi_benchmark<T> {
         }
 
 
-        times.view_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::view);
         Kokkos::extents<size_t, Kokkos::dynamic_extent, num_columns> extents(num_rows);
         auto view = empi::layouts::column_layout::build(data, extents, col_to_send);
-        times.view_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::view);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
             mgh.barrier();
-            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+            
+            times.start(timings::mpi); 
+            times.start(timings::compact); 
+            
             auto &&ptr = empi::layouts::compact(view); // basic compact function
-            times.compact_time[benchmark_timer::end] = empi::wtime();
+            
+            times.stop(timings::compact);
             if(rank != 0) {
-                times.compact_time[benchmark_timer::start] = times.compact_time[benchmark_timer::end]
-                    = 0; // skip compact time for non root
+                times.reset(timings::compact); // skip compact time for non root
             }
  
             for(auto iter = 0; iter < iterations; iter++) {
@@ -59,7 +62,7 @@ struct empi_send : public empi_benchmark<T> {
                     mgh.recv(rec_column, 0, num_rows, status);
                 }
             }
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             // Verify
             if(rank == 1) {

@@ -53,24 +53,25 @@ struct mpi_bcast : public mpi_benchmark<T> {
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::view);
         // Create MPI datatype represemnting the submatrix
         MPI_Datatype submatrix_type;
         MPI_Type_vector(
             tile_row_size, tile_col_size, num_cols, empi::details::mpi_type<T>::get_type(), &submatrix_type);
         MPI_Type_commit(&submatrix_type);
-        times.compact_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::view);
 
         const auto tiles_per_row = (num_cols / tile_col_size);
         const auto tile_row_pos = (tile_to_send / tiles_per_row) * tile_row_size;
 
+        times.start(timings::mpi);
         for(auto iter = 0; iter < iterations; iter++) {
             // MPI_Send(data.data() + tile_row_pos * num_cols + (tile_to_send % tiles_per_row) * tile_col_size, 1,
             // submatrix_type, 1, 0, MPI_COMM_WORLD);
             MPI_Bcast(data.data() + tile_row_pos * num_cols + (tile_to_send % tiles_per_row) * tile_col_size, 1,
                 submatrix_type, 0, MPI_COMM_WORLD);
         }
-        times.mpi_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::mpi);
 
         if(rank == 1) {
             // // check matrix

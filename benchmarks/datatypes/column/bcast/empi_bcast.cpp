@@ -35,21 +35,24 @@ struct empi_send : public empi_benchmark<T> {
             }
         }
 
-        times.view_time[benchmark_timer::start] = empi::wtime();
+        times.start(timings::view);
         Kokkos::extents<size_t, Kokkos::dynamic_extent, num_columns> extents(num_rows);
         auto view = empi::layouts::column_layout::build(data, extents, col_to_send);
-        times.view_time[benchmark_timer::end] = empi::wtime();
+        times.stop(timings::view);
 
         m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
             mgh.barrier();
 
-            times.mpi_time[benchmark_timer::start] = times.compact_time[benchmark_timer::start] = empi::wtime();
+            times.start(timings::mpi);
+            times.start(timings::compact); 
+            
             auto &&ptr = empi::layouts::compact(view); // basic compact function
-            times.compact_time[benchmark_timer::end] = empi::wtime();
+            
+            times.stop(timings::compact);
 
             for(auto iter = 0; iter < iterations; iter++) { mgh.Bcast(ptr.get(), 0, num_rows); }
 
-            times.mpi_time[benchmark_timer::end] = empi::wtime();
+            times.stop(timings::mpi);
 
             // Verify
             for(auto i = 0; i < view.size(); i++) {
