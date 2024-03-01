@@ -67,7 +67,7 @@ struct mpi_pack : public mpi_benchmark<T> {
 
         // Verify
         for(auto i = 0; i < num_rows; i++) {
-            if(rec_column[i] != i % 10) {
+            if(rec_column[i] != 'a' + i % 10) {
                 std::cerr << "Error at index " << i << " value: " << rec_column[i] << std::endl;
                 std::exit(-1);
             }

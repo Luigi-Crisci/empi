@@ -27,9 +27,8 @@ static void pack(T &in, T &out, size_t row_num, size_t col_num, size_t tile_row_
             MPI_Pack(&data[tile_row_pos * col_num + (tile_to_send % tiles_per_row) * tile_col_size + i * col_num], tile_col_size, base_datatype, out.data(), tile_col_size * tile_row_size * sizeof(T), &position, MPI_COMM_WORLD);
         }
         assert(position == tile_col_size * tile_row_size && "Position must be equal to the size of the packed data");
+        times.stop(timings::compact);
     }
-
-    times.stop(timings::compact);
 }
 
 template<typename T>

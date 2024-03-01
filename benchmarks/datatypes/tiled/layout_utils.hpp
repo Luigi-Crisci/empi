@@ -8,9 +8,10 @@ namespace tiled {
 template<typename T>
     requires empi::details::has_data<T>
 static void pack(T &in, T &out, size_t size, size_t A, size_t B, size_t tiled_size, int rank, benchmark_timer &times) {
+    times.start(timings::mpi); 
     auto base_datatype = empi::details::mpi_type<T>::get_type();
     if(rank == 0) {
-        times.start(timings::mpi); times.start(timings::compact); 
+        times.start(timings::compact); 
         int position = 0;
         for(int i = 0; i < size; i++) {
             if(i % B < A) { MPI_Pack(&in[i], 1, base_datatype, out.data(), tiled_size, &position, MPI_COMM_WORLD); }
@@ -29,8 +30,8 @@ static void unpack(
         MPI_Unpack(
             out.data(), tiled_size, &position, &in[i], 1, empi::details::mpi_type<T>::get_type(), MPI_COMM_WORLD);
     }
+    times.stop(timings::unpack);
     times.stop(timings::mpi);
-times.stop(timings::unpack);
 }
 
 
@@ -48,7 +49,8 @@ template<typename T>
     requires empi::details::has_data<T>
 static auto compact_view(T &data, auto view, benchmark_timer &times, std::unique_ptr<empi::MessageGroup> &mg) {
     mg->barrier();
-    times.start(timings::mpi); times.start(timings::compact); 
+    times.start(timings::mpi);
+    times.start(timings::compact); 
     auto &&ptr = empi::layouts::block_layout::compact(view);
     times.stop(timings::compact);
     if(mg->rank() != 0) { times.reset(timings::compact); }
