@@ -8,7 +8,29 @@
 
 #include <empi/datatype.hpp>
 #include <empi/defines.hpp>
+#include <vector>
 
+
+namespace empi::details {
+
+
+template<typename Extents, typename Indices>
+static constexpr Indices linear_index_impl(Indices idx, Extents ext, auto dims) {
+    auto local_idx = idx;
+    for(auto i = 0; i < dims; i++) { local_idx *= ext.extent(i); }
+    return local_idx;
+}
+
+template<typename Extents, typename IndexType = typename Extents::index_type, typename... Indices>
+static constexpr IndexType linear_index(Extents ext, Indices... idx) {
+    assert(sizeof...(idx) == Extents::rank() && "Number of indices must match the rank of the extents");
+    constexpr auto rank = Extents::rank();
+    auto i = rank - 1;
+    return (linear_index_impl(idx, ext, i--) + ...);
+}
+
+
+} // namespace empi::details
 
 namespace empi::layouts {
 
@@ -111,7 +133,7 @@ auto make_struct_accessor(Callable &&c) {
 struct submatrix_layout {
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
         typename IdxType, size_t... Idx>
-        requires (sizeof...(Idx) == 2)
+        requires(sizeof...(Idx) == 2)
     [[nodiscard]] static auto build(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view,
         std::size_t row_size, std::size_t col_size, std::size_t tile_num, size_t stride = 1) {
         const size_t num_cols = view.extent(1);
@@ -122,7 +144,7 @@ struct submatrix_layout {
             Kokkos::strided_slice<size_t, size_t, size_t>{col_tile_pos, col_size, stride});
     }
 
-     // One-dimensional compact
+    // One-dimensional compact
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
         typename IdxType, size_t... Idx>
         requires(sizeof...(Idx) == 2)
@@ -131,15 +153,14 @@ struct submatrix_layout {
         auto ptr = new element_type[view.size()];
         auto base = ptr;
 
-        for (size_t row = 0; row < view.extent(0); ++row) {
-           std::copy(&view(row,0), &view(row,view.extent(1)),  ptr);
-           ptr += view.extent(1);
+        for(size_t row = 0; row < view.extent(0); ++row) {
+            std::copy(&view(row, 0), &view(row, view.extent(1)), ptr);
+            ptr += view.extent(1);
         }
 
         details::conditional_deleter<element_type> del(true);
         return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
     }
-    
 };
 
 struct tiled_layout {
@@ -270,6 +291,101 @@ struct tiled_layout {
             size_type m_col_tile_size = 1;
         };
     };
+};
+
+
+struct indexed_layout {
+    template<typename Extents>
+    static constexpr auto build(
+        std::ranges::forward_range auto &&view, Extents extents, std::span<size_t> sizes, std::span<size_t> strides) {
+        using T = std::ranges::range_value_t<decltype(view)>;
+        return std::move(Kokkos::mdspan<T, Extents, indexed_layout_impl>(
+            std::ranges::data(view), indexed_layout_impl::mapping<Extents>(extents, sizes, strides)));
+    }
+
+    struct indexed_layout_impl {
+        template<typename Extents>
+        struct mapping {
+            friend struct indexed_layout;
+
+            using extents_type = Extents;
+            using rank_type = typename extents_type::rank_type;
+            using size_type = typename extents_type::size_type;
+            using layout_type = indexed_layout;
+
+            mapping() noexcept = default;
+            mapping(const mapping &) noexcept = default;
+            mapping &operator=(const mapping &) noexcept = default;
+
+            constexpr mapping(const Extents &ext, std::span<size_t> sizes, std::span<size_t> strides)
+                : m_extents(ext), m_sizes(sizes), m_strides(strides) {
+                assert(sizes.size() == strides.size() && "Sizes and strides must have the same size");
+                m_view_size = std::accumulate(m_sizes.begin(), m_sizes.end(), 0);
+                m_partial_sums.resize(m_sizes.size());
+                std::partial_sum(m_sizes.begin(), m_sizes.end(), m_partial_sums.begin());
+            }
+
+            constexpr const extents_type &extents() const { return m_extents; }
+
+            constexpr size_type required_span_size() const noexcept { return m_view_size; }
+
+            template<typename... Index>
+            constexpr size_type operator()(Index... indexes) const noexcept {
+                auto linear_idx = details::linear_index(m_extents, indexes...);
+                // + 1 to include the first stride
+                const auto idx_pos = std::distance(m_partial_sums.begin(),
+                                         std::lower_bound(m_partial_sums.begin(), m_partial_sums.end(), linear_idx,
+                                             [](const auto &vet_val, const auto &val) { return val >= vet_val; }))
+                    + 1;
+                std::for_each_n(m_strides.begin(), idx_pos, [&](auto &sum) { linear_idx += sum; });
+                return linear_idx;
+            }
+
+
+            static constexpr bool is_always_unique() noexcept { return true; }
+            static constexpr bool is_always_exhaustive() noexcept { return false; }
+            // There is not always a regular stride between elements in a given
+            // dimension
+            static constexpr bool is_always_strided() noexcept { return false; }
+
+            static constexpr bool is_unique() noexcept { return true; }
+            constexpr bool is_exhaustive() const noexcept {
+                return false; // TODO....
+            }
+            constexpr bool is_strided() const noexcept { return true; }
+            private:
+        
+            Extents m_extents; 
+            std::span<size_t> m_sizes;
+            std::span<size_t> m_strides;
+            size_t m_view_size{};
+            std::vector<size_t> m_partial_sums;
+        };
+    };
+
+     // One-dimensional compact
+    template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
+        typename IdxType, size_t... Idx>
+    requires (Extents<IdxType, Idx...>::rank() == 1)
+    static constexpr auto compact(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
+        using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+        auto& mapping = view.mapping();
+        auto ptr = new element_type[mapping.required_span_size()];
+        auto base = ptr;
+
+        // Iterate over each chunk
+        for(size_t i = 0, pos = 0; i < mapping.m_sizes.size(); i++){
+            const auto size = mapping.m_sizes[i];
+            // -1 to avoid getting into the other chunk (as std::copy ignores the last element)
+            // + 1 to include the include the last element in the chunk
+            std::copy(&view(pos), &view(pos + size - 1) + 1, ptr);
+            pos += size;
+            ptr += size;
+        }
+
+        details::conditional_deleter<element_type> del(true);
+        return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
+    }
 };
 
 // ##################### Layouts for benchmarking purposes ##################### //
