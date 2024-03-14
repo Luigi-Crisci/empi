@@ -126,6 +126,21 @@ template<typename C>
 concept has_static_extent
     = requires(C c) { (c.extent != Kokkos::dynamic_extent) || (std::is_array_v<C>) || (std::extent_v<C> > 0); };
 
+// Rank check utils
+template<typename Extents, size_t... Ranks>
+concept has_rank = requires { ((Extents::rank() == Ranks) || ...); };
+
+template<typename Extents>
+concept has_rank_1 = has_rank<Extents, 1>;
+
+template<typename Extents>
+concept has_rank_2 = has_rank<Extents, 2>;
+
+template<typename Extents>
+concept has_rank_3 = has_rank<Extents, 3>;
+
+
+
 ///////////////// IS MDSPAN ////////////////
 
 template<typename T>
@@ -191,6 +206,7 @@ using get_true_type_t = typename get_true_type<remove_all_t<T>>::type;
 //////////////// Typed range //////////////
 template<typename Range, typename Type>
 concept typed_range = std::ranges::range<Range> && std::is_same_v<std::ranges::range_value_t<Range>, Type>;
+
 
 } // namespace empi::details
 

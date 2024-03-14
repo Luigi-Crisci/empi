@@ -13,6 +13,7 @@
 
 namespace empi::details {
 
+enum order { row_major = 0, column_major = 1 };
 
 template<typename Extents, typename Indices>
 static constexpr Indices linear_index_impl(Indices idx, Extents ext, auto dims) {
@@ -21,12 +22,36 @@ static constexpr Indices linear_index_impl(Indices idx, Extents ext, auto dims) 
     return local_idx;
 }
 
-template<typename Extents, typename IndexType = typename Extents::index_type, typename... Indices>
+template<order Order = row_major, typename Extents, typename IndexType = typename Extents::index_type,
+    typename... Indices>
 static constexpr IndexType linear_index(Extents ext, Indices... idx) {
     assert(sizeof...(idx) == Extents::rank() && "Number of indices must match the rank of the extents");
     constexpr auto rank = Extents::rank();
-    auto i = rank - 1;
-    return (linear_index_impl(idx, ext, i--) + ...);
+    if constexpr(Order == row_major) {
+        auto i = rank - 1;
+        return (linear_index_impl(idx, ext, i--) + ...);
+    }
+    if constexpr(Order == column_major) {
+        auto i = 0;
+        return (linear_index_impl(idx, ext, i++) + ...);
+    }
+    __builtin_unreachable();
+}
+
+template<order Order = row_major, typename Extents, typename IndexType = typename Extents::index_type,
+    typename... Indices, size_t N>
+static constexpr IndexType linear_index(Extents ext, const std::array<IndexType, N>& idx) {
+    assert(idx.size() == Extents::rank() && "Number of indices must match the rank of the extents");
+    constexpr auto rank = Extents::rank();
+    std::remove_cv_t<IndexType> linear_index{0};
+    auto i = Order == row_major ? rank - 1 : 0;
+    auto op = [&i]() { return (Order == row_major) ? i-- : i++; };
+    std::flush(std::cout);
+    for(int j = 0; j < idx.size(); j++) {
+        std::flush(std::cout);
+        linear_index += linear_index_impl(idx[j], ext, op()); 
+    }
+    return linear_index; 
 }
 
 
@@ -353,9 +378,9 @@ struct indexed_layout {
                 return false; // TODO....
             }
             constexpr bool is_strided() const noexcept { return true; }
-            private:
-        
-            Extents m_extents; 
+
+          private:
+            Extents m_extents;
             std::span<size_t> m_sizes;
             std::span<size_t> m_strides;
             size_t m_view_size{};
@@ -363,18 +388,18 @@ struct indexed_layout {
         };
     };
 
-     // One-dimensional compact
+    // One-dimensional compact
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
         typename IdxType, size_t... Idx>
-    requires (Extents<IdxType, Idx...>::rank() == 1)
+        requires(Extents<IdxType, Idx...>::rank() == 1)
     static constexpr auto compact(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
         using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-        auto& mapping = view.mapping();
+        auto &mapping = view.mapping();
         auto ptr = new element_type[mapping.required_span_size()];
         auto base = ptr;
 
         // Iterate over each chunk
-        for(size_t i = 0, pos = 0; i < mapping.m_sizes.size(); i++){
+        for(size_t i = 0, pos = 0; i < mapping.m_sizes.size(); i++) {
             const auto size = mapping.m_sizes[i];
             // -1 to avoid getting into the other chunk (as std::copy ignores the last element)
             // + 1 to include the include the last element in the chunk
@@ -386,6 +411,26 @@ struct indexed_layout {
         details::conditional_deleter<element_type> del(true);
         return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
     }
+};
+
+struct subarray_layout {
+    template<details::order Order = details::row_major, typename Extents>
+    static constexpr auto build(std::ranges::forward_range auto &&view, Extents extents,
+        const std::array<size_t, Extents::rank()>& strides,
+        const std::array<size_t, Extents::rank()>& offsets) {
+        using T = std::ranges::range_value_t<decltype(view)>;
+        auto linear_index = details::linear_index<Order>(extents, offsets);
+        return std::move(Kokkos::mdspan<T, Extents, subarray_layout_impl>(
+            std::ranges::data(view) + linear_index, subarray_layout_impl::mapping<Extents>(extents, strides)));
+    }
+
+    struct subarray_layout_impl : Kokkos::layout_stride {
+        template<typename Extents>
+        struct mapping : Kokkos::layout_stride::mapping<Extents> {
+            using base = Kokkos::layout_stride::mapping<Extents>;
+            using base::base;
+        };
+    };
 };
 
 // ##################### Layouts for benchmarking purposes ##################### //
