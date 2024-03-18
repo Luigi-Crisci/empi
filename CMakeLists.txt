@@ -87,6 +87,11 @@ set(header_files
     ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/layouts_traits.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/time.hpp
+    # Compact files
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/compact/compact.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/compact/compact_layout_stride.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/empi/compact/compact_common.hpp
+
     ${CONFIG_PATH})
 
 get_property(

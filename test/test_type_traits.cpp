@@ -2,24 +2,23 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <empi/defines.hpp>
 #include <empi/empi.hpp>
 #include <empi/layouts_traits.hpp>
 #include <empi/type_traits.hpp>
 
 namespace stdex = Kokkos;
 
-TEST_CASE("is_mdspan", "[type_traits]") {
+TEST_CASE("Mdspan", "[type_traits]") {
     using namespace Kokkos;
     using extent_type = dextents<int, 1>;
 
-    REQUIRE_FALSE(empi::details::is_mdspan<int>);
-    REQUIRE_FALSE(empi::details::is_mdspan<std::vector<int>>);
+    REQUIRE_FALSE(empi::details::Mdspan<int>);
+    REQUIRE_FALSE(empi::details::Mdspan<std::vector<int>>);
 
-    REQUIRE(empi::details::is_mdspan<mdspan<int, extent_type>>);
-    REQUIRE(empi::details::is_mdspan<mdspan<float, extent_type>>);
-    REQUIRE(empi::details::is_mdspan<mdspan<int, extents<int, 1>>>);
-    REQUIRE(empi::details::is_mdspan<mdspan<float, extents<int, 1>>>);
+    REQUIRE(empi::details::Mdspan<mdspan<int, extent_type>>);
+    REQUIRE(empi::details::Mdspan<mdspan<float, extent_type>>);
+    REQUIRE(empi::details::Mdspan<mdspan<int, extents<int, 1>>>);
+    REQUIRE(empi::details::Mdspan<mdspan<float, extents<int, 1>>>);
 }
 
 

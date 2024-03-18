@@ -153,7 +153,7 @@ template<typename T>
 static constexpr bool is_mdspan_v = is_mdspan_impl<T>::value;
 
 template<typename T>
-concept is_mdspan = is_mdspan_v<std::remove_cvref_t<T>>;
+concept Mdspan = is_mdspan_v<std::remove_cvref_t<T>>;
 
 ///////////////// size_of //////////////
 
@@ -189,7 +189,7 @@ struct get_true_type<T> {
     using type = typename T::value_type;
 };
 
-template<is_mdspan T>
+template<Mdspan T>
 struct get_true_type<T> {
     using type = typename details::remove_all_t<T>::accessor_type::element_type;
 };

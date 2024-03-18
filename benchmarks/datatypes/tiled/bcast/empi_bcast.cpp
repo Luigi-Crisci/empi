@@ -39,30 +39,63 @@ struct empi_bcast : public empi_benchmark<T>{
                if (i % B < A){
                 data[i] = 'a';
                }
+               else {
+                data[i] = 'b';
+               }
            }
         }
+        
+        int DIM1 = 5;
+        int DIM2 = 2;
+        int DIM3 = 4;
+        std::vector<float> send_array(DIM1 * DIM2 * DIM3);
+        for(size_t i = 0; i < DIM1 * DIM2 * DIM3; i++) {
+            send_array[i] = i;
+        }
 
-        std::vector<T> res(tiled_size);
-        res.reserve(tiled_size);
+        Kokkos::dextents<std::size_t, 2> ext{DIM1, DIM3};
+        std::array<int, 2> strides{DIM1 * DIM2, 1};
+        Kokkos::layout_stride::mapping<decltype(ext)> layout(ext, strides);
+        Kokkos::mdspan<float, decltype(ext), Kokkos::layout_stride> view{send_array.data(), layout};
 
-        auto view = tiled::build_mdspan(data, A, B, tiled_size, times);
-
-        m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
-            auto&& ptr = tiled::compact_view(data, view, times, m_message_group);
-
-            for(auto iter = 0; iter < iterations; iter++) {
-                mgh.Bcast(ptr.get(), 0, tiled_size);
+        // Print mdspan
+        std::cout << "MDSPAN: " << std::endl;
+        for(size_t i = 0; i < DIM3; i++) {
+            for(size_t j = 0; j < DIM1; j++) {
+                std::cout << view(i, j) << " ";
             }
+            std::cout << std::endl;
+        }
+
+        // std::cout << "A: " << A << " B: " << B << " Size: " << size << " Tiled size: " << tiled_size << std::endl;
+        // // Print data
+        // for(size_t i = 0; i < size; i++) {
+        //     std::cout << data[i] << " ";
+        // }
+        // std::cout << std::endl;
+
+
+        // std::vector<T> res(tiled_size);
+        // res.reserve(tiled_size);
+
+        // auto view = tiled::build_mdspan(data, A, B, tiled_size, times);
+
+        // m_message_group->run([&](empi::MessageGroupHandler<T, empi::Tag{0}, empi::NOSIZE> &mgh) {
+        //     auto&& ptr = tiled::compact_view(data, view, times, m_message_group);
+
+        //     for(auto iter = 0; iter < iterations; iter++) {
+        //         mgh.Bcast(ptr.get(), 0, tiled_size);
+        //     }
     
-            times.stop(timings::mpi);
+        //     times.stop(timings::mpi);
 
-            for(auto i = 0; i < res.size(); i++) {
-                if(ptr.get()[i] != 'a') {
-                    std::cerr << "Error: " << res[i] << " != " << 'a' << std::endl;
-                    std::abort();
-                }
-            }
-        }); 
+        //     for(auto i = 0; i < res.size(); i++) {
+        //         if(ptr.get()[i] != 'a') {
+        //             std::cerr << "Error: " << res[i] << " != " << 'a' << std::endl;
+        //             std::abort();
+        //         }
+        //     }
+        // }); 
     }
 };
 

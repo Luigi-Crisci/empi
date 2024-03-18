@@ -70,13 +70,13 @@ void checktag(int tag, int maxtag) {
     }
 }
 
-template<is_mdspan T, typename Op>
+template<Mdspan T, typename Op>
     requires(T::extents_type::rank() == 1)
 void constexpr apply(T view, Op &&op) {
     for(int i = 0; i < view.extent(0); i++) { op(view[i]); }
 }
 
-template<is_mdspan T, typename Op>
+template<Mdspan T, typename Op>
     requires(T::extents_type::rank() == 2)
 void constexpr apply(T view, Op &&op) {
     for(int i = 0; i < view.extent(0); i++) {
@@ -84,7 +84,7 @@ void constexpr apply(T view, Op &&op) {
     }
 }
 
-template<is_mdspan T, typename Op>
+template<Mdspan T, typename Op>
     requires(T::extents_type::rank() == 3)
 void constexpr apply(T view, Op &&op) {
     for(int i = 0; i < view.extent(0); i++) {

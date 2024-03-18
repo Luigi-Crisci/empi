@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <empi/empi.hpp>
 #include <empi/utils.hpp>
-#include <experimental/mdspan>
+#include <mdspan/mdspan.hpp>
 
 namespace stdex = Kokkos;
 

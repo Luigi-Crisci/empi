@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <empi/compact.hpp>
+#include <empi/compact/compact.hpp>
 #include <empi/empi.hpp>
 
 #include "utils.hpp"
@@ -10,7 +10,7 @@ TEST_CASE("Call compact on a trivial layout and accessor does not produce copies
     using namespace Kokkos;
     std::vector<int> v(16);
     auto view = empi::layouts::contiguous_layout::build(v);
-    REQUIRE(empi::layouts::is_trivial_view<decltype(view)::layout_type, decltype(view)::accessor_type>);
+    REQUIRE(empi::layouts::is_trivial_view<decltype(view)>);
     auto ptr = empi::layouts::compact(view);
 
     REQUIRE(empi::details::is_same_template_v<empi::details::conditional_deleter<int>, decltype(ptr)::deleter_type>);
@@ -25,7 +25,7 @@ TEST_CASE("Call compact on a contiguous layout and non-trivial accessor produces
     auto view = empi::layouts::contiguous_layout::build(v, acc);
 
     REQUIRE_FALSE(
-        empi::layouts::is_trivial_view<typename decltype(view)::layout_type, typename decltype(view)::accessor_type>);
+        empi::layouts::is_trivial_view<decltype(view)>);
     auto ptr = empi::layouts::compact(view);
     REQUIRE(empi::details::is_same_template_v<std::unique_ptr<int>, decltype(ptr)>);
 }
@@ -37,7 +37,7 @@ TEST_CASE("Call compact on a non-contiguous layout and trivial accessor produces
     auto view = empi::layouts::column_layout::build(v, extents<int, 4, 4>{}, 3);
 
     REQUIRE_FALSE(
-        empi::layouts::is_trivial_view<typename decltype(view)::layout_type, typename decltype(view)::accessor_type>);
+        empi::layouts::is_trivial_view<decltype(view)>);
     auto ptr = empi::layouts::compact(view);
     REQUIRE(empi::details::is_same_template_v<std::unique_ptr<int>, decltype(ptr)>);
 }
@@ -51,7 +51,7 @@ TEST_CASE("Call compact on a non-contiguous layout and non-trivial accessor prod
     auto view = empi::layouts::column_layout::build(v, extents<int, 4, 4>{}, 3, acc);
 
     REQUIRE_FALSE(
-        empi::layouts::is_trivial_view<typename decltype(view)::layout_type, typename decltype(view)::accessor_type>);
+        empi::layouts::is_trivial_view<decltype(view)>);
     auto ptr = empi::layouts::compact(view);
     REQUIRE(empi::details::is_same_template_v<std::unique_ptr<int>, decltype(ptr)>);
 }
@@ -95,4 +95,55 @@ TEST_CASE("Compact non-contiguous data", "[compact][layouts]") {
     auto ptr = empi::layouts::compact(view);
 
     for(int i = 0; i < 4; i++) { REQUIRE(ptr.get()[i] == 10); }
+}
+
+TEST_CASE("Compact a strided layout with contiguous X dim", "[compact][layouts]"){
+        int DIM1 = 5;
+        int DIM2 = 2;
+        int DIM3 = 4;
+        std::vector<float> send_array(DIM1 * DIM2 * DIM3);
+        std::fill(send_array.begin(), send_array.end(), 0.f);
+        
+        Kokkos::mdspan send_mdspan(send_array.data(), DIM3, DIM2, DIM1);
+        for (int i = 0; i < send_mdspan.extent(0); i++){
+                for (int k = 0; k < send_mdspan.extent(2); k++){
+                    send_mdspan(i,0,k) = 1.f;
+                }
+                std::cout << std::endl;
+        }
+        //Print mdspan
+        std::cout << "MDSPAN: " << std::endl;
+        for (int i = 0; i < send_mdspan.extent(0); i++){
+            for (int j = 0; j < send_mdspan.extent(1); j++){
+                for (int k = 0; k < send_mdspan.extent(2); k++){
+                    std::cout << send_mdspan(i,j,k) << " ";
+                }
+                std::cout << std::endl;
+            }
+        }
+        std::cout << "MDSPAN: " << std::endl;
+
+
+
+
+        Kokkos::dextents<std::size_t, 2> ext{DIM3, DIM1};
+        std::array<int, 2> strides{DIM1 * DIM2, 1};
+        Kokkos::layout_stride::mapping<decltype(ext)> layout(ext, strides);
+        Kokkos::mdspan<float, decltype(ext), Kokkos::layout_stride> view{send_array.data(), layout};
+
+        //Print mdspan
+        std::cout << "MDSPAN: " << std::endl;
+        for(size_t i = 0; i < view.extent(0); i++) {
+            for(size_t j = 0; j < view.extent(1); j++) {
+                std::cout << view(i, j) << " ";
+            }
+            std::cout << std::endl;
+        }        
+
+        auto ptr = empi::layouts::compact<empi::details::row_major>(view);
+        for (int i = 0; i < DIM1 * DIM3; i++) {
+            std::cout << ptr.get()[i] << " ";
+        }
+        std::cout << std::endl;
+        for(int i = 0; i < DIM1 * DIM3; i++) { REQUIRE(ptr.get()[i] == 1.f); }
 }

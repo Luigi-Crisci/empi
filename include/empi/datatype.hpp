@@ -84,7 +84,7 @@ static inline constexpr auto get_underlying_pointer(std::unique_ptr<T> &buf) {
 }
 
 template<typename T>
-    requires(!is_mdspan<T>)
+    requires(!Mdspan<T>)
 static inline constexpr auto get_underlying_pointer(T &&buf, bool flag) {
     return get_underlying_pointer(std::forward<T>(buf));
 }

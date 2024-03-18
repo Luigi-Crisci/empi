@@ -14,7 +14,7 @@
 #include <empi/type_traits.hpp>
 
 #include <empi/async_event.hpp>
-#include <empi/compact.hpp>
+#include <empi/compact/compact.hpp>
 #include <empi/datatype.hpp>
 #include <empi/defines.hpp>
 #include <empi/layouts.hpp>
