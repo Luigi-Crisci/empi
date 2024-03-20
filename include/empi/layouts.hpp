@@ -5,10 +5,12 @@
 #include <iostream>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include <empi/datatype.hpp>
 #include <empi/defines.hpp>
-#include <vector>
+#include <empi/type_traits.hpp>
+#include <empi/utils.hpp>
 
 
 namespace empi::details {
@@ -40,7 +42,7 @@ static constexpr IndexType linear_index(Extents ext, Indices... idx) {
 
 template<order Order = row_major, typename Extents, typename IndexType = typename Extents::index_type,
     typename... Indices, size_t N>
-static constexpr IndexType linear_index(Extents ext, const std::array<IndexType, N>& idx) {
+static constexpr IndexType linear_index(Extents ext, const std::array<IndexType, N> &idx) {
     assert(idx.size() == Extents::rank() && "Number of indices must match the rank of the extents");
     constexpr auto rank = Extents::rank();
     std::remove_cv_t<IndexType> linear_index{0};
@@ -49,9 +51,9 @@ static constexpr IndexType linear_index(Extents ext, const std::array<IndexType,
     std::flush(std::cout);
     for(int j = 0; j < idx.size(); j++) {
         std::flush(std::cout);
-        linear_index += linear_index_impl(idx[j], ext, op()); 
+        linear_index += linear_index_impl(idx[j], ext, op());
     }
-    return linear_index; 
+    return linear_index;
 }
 
 
@@ -319,24 +321,158 @@ struct tiled_layout {
 };
 
 
-struct indexed_layout {
+struct index_block_layout {
     template<typename Extents>
     static constexpr auto build(
-        std::ranges::forward_range auto &&view, Extents extents, std::span<size_t> sizes, std::span<size_t> strides) {
+        std::ranges::forward_range auto &&view, Extents extents, size_t size, std::span<size_t> displacements) {
         using T = std::ranges::range_value_t<decltype(view)>;
-        return std::move(Kokkos::mdspan<T, Extents, indexed_layout_impl>(
-            std::ranges::data(view), indexed_layout_impl::mapping<Extents>(extents, sizes, strides)));
+        return std::move(Kokkos::mdspan<T, Extents, index_block_layout_impl>(
+            std::ranges::data(view), index_block_layout_impl::mapping<Extents>(extents, size, displacements)));
     }
 
-    struct indexed_layout_impl {
+    struct index_block_layout_impl {
         template<typename Extents>
         struct mapping {
-            friend struct indexed_layout;
+            friend struct index_block_layout;
+            static_assert(Extents::rank() == 1, "Hardwritten for 1D layouts, for now");
 
             using extents_type = Extents;
             using rank_type = typename extents_type::rank_type;
             using size_type = typename extents_type::size_type;
-            using layout_type = indexed_layout;
+            using layout_type = index_block_layout;
+
+            mapping() noexcept = default;
+            mapping(const mapping &) noexcept = default;
+            mapping &operator=(const mapping &) noexcept = default;
+
+
+            constexpr mapping(const Extents &ext, size_t size, std::span<size_t> displacements)
+                : m_extents(ext), m_block_size(size), m_displs(displacements) {
+                m_view_size = displacements.size();
+                // Get a sorted copy of the displacements for compacting
+                m_sorted_displs.resize(m_view_size);
+                size_t i = 0;
+                std::transform(m_displs.begin(), m_displs.end(), m_sorted_displs.begin(),
+                    [&](auto &val) { return std::make_pair(i++, val); });
+                std::sort(m_sorted_displs.begin(), m_sorted_displs.end(),
+                    [](auto &a, auto &b) { return a.second < b.second; });
+                // Get all the consecutive section in m_displs, and store the start and end position in
+                // m_consecutive_indexes
+                m_consecutive_indexes.reserve(m_sorted_displs.size() / 2); // Preallocate half of the size
+                size_t start = 0;
+                size_t end = 0;
+                for(size_t i = 1; i < m_sorted_displs.size(); i++) {
+                    if(m_sorted_displs[i].second - m_sorted_displs[i - 1].second == m_block_size) {
+                        end = i;
+                    } else {
+                        m_consecutive_indexes.push_back(
+                            std::make_pair(m_sorted_displs[start].first, m_sorted_displs[end].first));
+                        start = i;
+                        end = i;
+                    }
+                }
+                m_consecutive_indexes.push_back(
+                    std::make_pair(m_sorted_displs[start].first, m_sorted_displs[end].first));
+
+                //Unpack indexes
+                m_unpack_indexes.resize(m_view_size);
+                for(int i = 0; i < m_view_size; i++){
+                    m_unpack_indexes[m_sorted_displs[i].first] = i;
+                }
+            }
+
+            constexpr const extents_type &extents() const { return m_extents; }
+
+            constexpr size_type required_span_size() const noexcept { return m_view_size; }
+
+            // TODO: multi-dimensional index block
+
+            constexpr size_type operator()(size_t index) const noexcept { return m_displs[index]; }
+
+            static constexpr bool is_always_unique() noexcept { return false; }
+            static constexpr bool is_always_exhaustive() noexcept { return false; }
+            // There is not always a regular stride between elements in a given
+            // dimension
+            static constexpr bool is_always_strided() noexcept { return false; }
+
+            static constexpr bool is_unique() noexcept { return false; }
+            constexpr bool is_exhaustive() const noexcept { return false; }
+            constexpr bool is_strided() const noexcept { return true; }
+
+          private:
+            Extents m_extents;
+            size_t m_block_size;
+            std::span<size_t> m_displs;
+            std::vector<std::pair<size_t, size_t>> m_sorted_displs;
+            size_t m_view_size{};
+            std::vector<std::pair<size_t, size_t>> m_consecutive_indexes;
+
+            std::vector<size_t> m_unpack_indexes;
+        };
+    };
+
+    template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
+        typename IdxType, size_t... Idx>
+        requires(Extents<IdxType, Idx...>::rank() == 1)  
+    static constexpr auto index_block_layout_compact_1dimpl(
+        const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
+        using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+        auto &mapping = view.mapping();
+        auto &consecutive_blocks = mapping.m_consecutive_indexes;
+        auto &block_size = mapping.m_block_size;
+        auto ptr = new element_type[mapping.required_span_size()];
+        std::fill(ptr, ptr + mapping.required_span_size(), -1); // TODO: remove (for debugging purposes
+        auto base = ptr;
+
+        // Iterate over each chunk
+        for(size_t i = 0; i < consecutive_blocks.size(); i++) {
+            const auto &start = consecutive_blocks[i].first;
+            const auto &end = consecutive_blocks[i].second;
+            const auto size = std::distance(&view(start), &view(end) + block_size);
+            std::copy(&view(start), (&view(end) + block_size), ptr);
+            ptr += size;
+        }
+
+        details::conditional_deleter<element_type> del(true);
+        return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
+    }
+
+    template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
+        typename IdxType, size_t... Idx>
+        requires(Extents<IdxType, Idx...>::rank() == 1)
+    constexpr static auto get_unpack_indices(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
+        return view.mapping().m_unpack_indexes;
+    }
+};
+
+template<typename T>
+    requires details::Mdspan<T> && std::is_same_v<typename std::remove_cvref_t<T>::layout_type, index_block_layout::index_block_layout_impl>
+constexpr auto compact(T &&view) {
+    using extent_type = typename std::remove_cvref_t<T>::extents_type;
+    static_assert(extent_type::rank() == 1, "Only 1D mdspan are supported");
+
+    return index_block_layout::index_block_layout_compact_1dimpl(std::forward<T>(view));
+}
+
+
+struct multiple_stride_layout {
+    template<typename Extents>
+    static constexpr auto build(
+        std::ranges::forward_range auto &&view, Extents extents, std::span<size_t> sizes, std::span<size_t> strides) {
+        using T = std::ranges::range_value_t<decltype(view)>;
+        return std::move(Kokkos::mdspan<T, Extents, multiple_stride_layout_impl>(
+            std::ranges::data(view), multiple_stride_layout_impl::mapping<Extents>(extents, sizes, strides)));
+    }
+
+    struct multiple_stride_layout_impl {
+        template<typename Extents>
+        struct mapping {
+            friend struct multiple_stride_layout;
+
+            using extents_type = Extents;
+            using rank_type = typename extents_type::rank_type;
+            using size_type = typename extents_type::size_type;
+            using layout_type = multiple_stride_layout;
 
             mapping() noexcept = default;
             mapping(const mapping &) noexcept = default;
@@ -416,8 +552,7 @@ struct indexed_layout {
 struct subarray_layout {
     template<details::order Order = details::row_major, typename Extents>
     static constexpr auto build(std::ranges::forward_range auto &&view, Extents extents,
-        const std::array<size_t, Extents::rank()>& strides,
-        const std::array<size_t, Extents::rank()>& offsets) {
+        const std::array<size_t, Extents::rank()> &strides, const std::array<size_t, Extents::rank()> &offsets) {
         using T = std::ranges::range_value_t<decltype(view)>;
         auto linear_index = details::linear_index<Order>(extents, offsets);
         return std::move(Kokkos::mdspan<T, Extents, subarray_layout_impl>(
