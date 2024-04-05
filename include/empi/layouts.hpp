@@ -576,7 +576,8 @@ struct multiple_stride_layout {
             const auto size = mapping.m_sizes[i];
             // -1 to avoid getting into the other chunk (as std::copy ignores the last element)
             // + 1 to include the include the last element in the chunk
-            std::copy(&view(pos), &view(pos + size - 1) + 1, ptr);
+            const auto base_ptr = &view(pos);
+            std::copy(base_ptr, base_ptr + size, ptr);
             pos += size;
             ptr += size;
         }
