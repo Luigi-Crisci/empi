@@ -48,9 +48,7 @@ static constexpr IndexType linear_index(Extents ext, const std::array<IndexType,
     std::remove_cv_t<IndexType> linear_index{0};
     auto i = Order == row_major ? rank - 1 : 0;
     auto op = [&i]() { return (Order == row_major) ? i-- : i++; };
-    std::flush(std::cout);
     for(int j = 0; j < idx.size(); j++) {
-        std::flush(std::cout);
         linear_index += linear_index_impl(idx[j], ext, op());
     }
     return linear_index;
@@ -324,13 +322,15 @@ struct tiled_layout {
 struct index_block_layout {
     template<typename Extents>
     static constexpr auto build(
-        std::ranges::forward_range auto &&view, Extents extents, size_t size, std::span<size_t> displacements) {
+        std::ranges::forward_range auto &&view, Extents extents, size_t size, std::span<const size_t> displacements) {
         using T = std::ranges::range_value_t<decltype(view)>;
         return std::move(Kokkos::mdspan<T, Extents, index_block_layout_impl>(
             std::ranges::data(view), index_block_layout_impl::mapping<Extents>(extents, size, displacements)));
     }
 
     struct index_block_layout_impl {
+        #define CONTIGUOUS_BLOCK_OPT 0
+        
         template<typename Extents>
         struct mapping {
             friend struct index_block_layout;
@@ -345,23 +345,26 @@ struct index_block_layout {
             mapping(const mapping &) noexcept = default;
             mapping &operator=(const mapping &) noexcept = default;
 
-
-            constexpr mapping(const Extents &ext, size_t size, std::span<size_t> displacements)
+            #if CONTIGUOUS_BLOCK_OPT
+            constexpr mapping(const Extents &ext, size_t size, std::span<const size_t> displacements)
                 : m_extents(ext), m_block_size(size), m_displs(displacements) {
                 m_view_size = displacements.size();
                 // Get a sorted copy of the displacements for compacting
                 m_sorted_displs.resize(m_view_size);
                 size_t i = 0;
+                //TODO: Merge transform and sort into one call with std::ranges?
                 std::transform(m_displs.begin(), m_displs.end(), m_sorted_displs.begin(),
                     [&](auto &val) { return std::make_pair(i++, val); });
                 std::sort(m_sorted_displs.begin(), m_sorted_displs.end(),
                     [](auto &a, auto &b) { return a.second < b.second; });
                 // Get all the consecutive section in m_displs, and store the start and end position in
                 // m_consecutive_indexes
-                m_consecutive_indexes.reserve(m_sorted_displs.size() / 2); // Preallocate half of the size
+                m_unpack_indexes.resize(m_view_size);
+                m_consecutive_indexes.reserve(m_sorted_displs.size());
                 size_t start = 0;
                 size_t end = 0;
                 for(size_t i = 1; i < m_sorted_displs.size(); i++) {
+                    m_unpack_indexes[m_sorted_displs[i].first] = i;
                     if(m_sorted_displs[i].second - m_sorted_displs[i - 1].second == m_block_size) {
                         end = i;
                     } else {
@@ -374,13 +377,15 @@ struct index_block_layout {
                 m_consecutive_indexes.push_back(
                     std::make_pair(m_sorted_displs[start].first, m_sorted_displs[end].first));
 
-                //Unpack indexes
-                m_unpack_indexes.resize(m_view_size);
-                for(int i = 0; i < m_view_size; i++){
-                    m_unpack_indexes[m_sorted_displs[i].first] = i;
-                }
             }
-
+            #else
+            constexpr mapping(const Extents &ext, size_t size, std::span<const size_t> displacements)
+                : m_extents(ext), m_block_size(size), m_displs(displacements), m_unpack_indexes(m_view_size) {
+                m_view_size = displacements.size();
+                std::iota(m_unpack_indexes.begin(), m_unpack_indexes.end(), 0);
+            }
+            #endif
+            
             constexpr const extents_type &extents() const { return m_extents; }
 
             constexpr size_type required_span_size() const noexcept { return m_view_size; }
@@ -402,7 +407,7 @@ struct index_block_layout {
           private:
             Extents m_extents;
             size_t m_block_size;
-            std::span<size_t> m_displs;
+            std::span<const size_t> m_displs;
             std::vector<std::pair<size_t, size_t>> m_sorted_displs;
             size_t m_view_size{};
             std::vector<std::pair<size_t, size_t>> m_consecutive_indexes;
@@ -411,17 +416,17 @@ struct index_block_layout {
         };
     };
 
+    #if CONTIGUOUS_BLOCK_OPT
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
         typename IdxType, size_t... Idx>
         requires(Extents<IdxType, Idx...>::rank() == 1)  
     static constexpr auto index_block_layout_compact_1dimpl(
         const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
         using element_type = std::remove_cvref_t<typename Accessor::element_type>;
-        auto &mapping = view.mapping();
-        auto &consecutive_blocks = mapping.m_consecutive_indexes;
-        auto &block_size = mapping.m_block_size;
+        const auto &mapping = view.mapping();
+        const auto &consecutive_blocks = mapping.m_consecutive_indexes;
+        auto block_size = mapping.m_block_size;
         auto ptr = new element_type[mapping.required_span_size()];
-        std::fill(ptr, ptr + mapping.required_span_size(), -1); // TODO: remove (for debugging purposes
         auto base = ptr;
 
         // Iterate over each chunk
@@ -436,12 +441,43 @@ struct index_block_layout {
         details::conditional_deleter<element_type> del(true);
         return std::unique_ptr<element_type, decltype(del)>(std::move(base), del);
     }
+    #else
+    //FIXME: test without consecutive blocks optimization
+    template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
+        typename IdxType, size_t... Idx>
+        requires(Extents<IdxType, Idx...>::rank() == 1)  
+    static constexpr auto index_block_layout_compact_1dimpl(
+        const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
+        using element_type = std::remove_cvref_t<typename Accessor::element_type>;
+        const auto &mapping = view.mapping();
+        auto block_size = mapping.m_block_size;
+        
+        auto ptr = new element_type[mapping.required_span_size()];
+        auto base_ptr = ptr;
+
+        // Iterate over each chunk
+        for(size_t i = 0; i < mapping.required_span_size(); i++) {
+            if (block_size == 1){
+                ptr[i] = view(i);
+            }
+            else{
+                std::copy(&view(i), &view(i) + block_size, ptr);
+                ptr = ptr + block_size;
+            }
+        }
+        
+
+        details::conditional_deleter<element_type> del(true);
+        return std::unique_ptr<element_type, decltype(del)>(std::move(base_ptr), del);
+    }
+    #endif
+
 
     template<typename T, template<typename, size_t...> typename Extents, typename Layout, typename Accessor,
         typename IdxType, size_t... Idx>
         requires(Extents<IdxType, Idx...>::rank() == 1)
     constexpr static auto get_unpack_indices(const Kokkos::mdspan<T, Extents<IdxType, Idx...>, Layout, Accessor> &view) {
-        return view.mapping().m_unpack_indexes;
+        return std::span{view.mapping().m_unpack_indexes.data(), view.mapping().m_unpack_indexes.size()};
     }
 };
 
@@ -450,7 +486,8 @@ template<typename T>
 constexpr auto compact(T &&view) {
     using extent_type = typename std::remove_cvref_t<T>::extents_type;
     static_assert(extent_type::rank() == 1, "Only 1D mdspan are supported");
-
+    //TODO: We should have different strategies depending on the block size
+    //For example, if you just have individual blocks with block size 1, having a memory copy is too expensive
     return index_block_layout::index_block_layout_compact_1dimpl(std::forward<T>(view));
 }
 
